@@ -24,6 +24,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import eightbitlab.com.blurview.BlurView;
+import eightbitlab.com.blurview.RenderEffectBlur;
+import eightbitlab.com.blurview.RenderScriptBlur;
+
 
 public class NewsFragment extends Fragment {
 
@@ -51,7 +55,7 @@ public class NewsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // 只给顶部状态栏留高度，底部不加 padding（避免与底部导航之间出现空隙）
+
         ViewCompat.setOnApplyWindowInsetsListener(view, (v, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(0, bars.top, 0, 0);
@@ -62,6 +66,7 @@ public class NewsFragment extends Fragment {
         rvNews.setLayoutManager(new LinearLayoutManager(getContext()));
         rvNews.setAdapter(adapter);
         adapter.submit(filter("全部"));
+
 
 
         adapter.setOnItemClickListener(item -> {

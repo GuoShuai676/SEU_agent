@@ -102,7 +102,7 @@ private:
         }
     }
 
-    // --- 字符串解析 ---
+    // 字符串解析
     JsonValue parseString() {
         JsonValue v;
         v.type = JsonType::String;
@@ -192,7 +192,7 @@ private:
         return v;
     }
 
-    // --- 布尔值解析 ---
+    //  布尔值解析
     JsonValue parseBool() {
         JsonValue v;
         v.type = JsonType::Bool;
@@ -206,7 +206,7 @@ private:
         return v;
     }
 
-    // --- null 解析 ---
+    //  null 解析
     JsonValue parseNull() {
         if (src_.compare(pos_, 4, "null") == 0) {
             pos_ += 4;
@@ -214,7 +214,7 @@ private:
         return {};
     }
 
-    // --- 数组解析 ---
+    //  数组解析
     JsonValue parseArray() {
         JsonValue v;
         v.type = JsonType::Array;
@@ -232,7 +232,7 @@ private:
         return v;
     }
 
-    // --- 对象解析 ---
+    //  对象解析
     JsonValue parseObject() {
         JsonValue v;
         v.type = JsonType::Object;
@@ -259,9 +259,6 @@ private:
     }
 };
 
-// -------------------------------------------------------------------
-//  JsonValue 静态方法 & 成员方法实现
-// -------------------------------------------------------------------
 
 JsonValue JsonValue::parse(const std::string& text) {
     Parser p(text);
