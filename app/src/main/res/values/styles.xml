@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 课表格子基础：宽度均分（一行 8 列 = 节 + 周一~周日），高度固定 -->
+    <style name="CellBase">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_height">38dp</item>
+        <item name="android:layout_margin">1dp</item>
+        <item name="android:gravity">center</item>
+    </style>
+
+    <!-- 表头/节次号格子：深色底 + 白字 -->
+    <style name="CellHeader" parent="CellBase">
+        <item name="android:background">@drawable/bg_course_header</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <!-- 空格子：浅色底 -->
+    <style name="CellEmpty" parent="CellBase">
+        <item name="android:background">@drawable/bg_course_cell_empty</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:textSize">10sp</item>
+    </style>
+
+    <!-- 课程格子：4 种颜色轮换 -->
+    <style name="CellCourse" parent="CellBase">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">9sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="CellCourse1" parent="CellCourse">
+        <item name="android:background">@drawable/bg_course_cell_1</item>
+    </style>
+    <style name="CellCourse2" parent="CellCourse">
+        <item name="android:background">@drawable/bg_course_cell_2</item>
+    </style>
+    <style name="CellCourse3" parent="CellCourse">
+        <item name="android:background">@drawable/bg_course_cell_3</item>
+    </style>
+    <style name="CellCourse4" parent="CellCourse">
+        <item name="android:background">@drawable/bg_course_cell_4</item>
+    </style>
+</resources>

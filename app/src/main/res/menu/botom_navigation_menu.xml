@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/menu_news"
+        android:icon="@drawable/news"
+        android:title="资讯"/>
+    <item
+        android:id="@+id/menu_agent"
+        android:icon="@drawable/agent"
+        android:title="小助手"/>
+    <item
+        android:id="@+id/menu_classtable"
+        android:icon="@drawable/resource_class"
+        android:title="课表"/>
+    <item
+        android:id="@+id/menu_mine"
+        android:icon="@drawable/mine"
+        android:title="我的" />
+
+
+</menu>
