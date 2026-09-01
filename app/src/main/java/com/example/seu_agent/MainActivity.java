@@ -2,12 +2,15 @@ package com.example.seu_agent;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 
 import android.os.Bundle;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.TextView;
 
 import com.example.seu_agent.fragment.AgentFragment;
@@ -39,6 +42,26 @@ public class MainActivity extends AppCompatActivity {
         list.add(new ClassTableFragment());
         list.add(new MineFragment());
         ShowFragment(list.get(0));
+
+        // 键盘弹出时淡出底部导航胶囊，收起时淡入，避免被键盘顶起/遮挡
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main_root), (v, insets) -> {
+            boolean imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime());
+            View nav = findViewById(R.id.navigation);
+            final View capsule = nav == null ? null : (View) nav.getParent();
+            if (capsule != null) {
+                capsule.animate().cancel();
+                if (imeVisible) {
+                    capsule.animate().alpha(0f).setDuration(180)
+                            .withEndAction(() -> {
+                                if (capsule.getAlpha() == 0f) capsule.setVisibility(View.GONE);
+                            });
+                } else {
+                    capsule.setVisibility(View.VISIBLE);
+                    capsule.animate().alpha(1f).setDuration(180);
+                }
+            }
+            return insets;
+        });
 
         bottomnavigation.setOnItemSelectedListener(new NavigationBarView.OnItemSelectedListener() {
             @Override

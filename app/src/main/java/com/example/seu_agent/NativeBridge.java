@@ -35,9 +35,20 @@ public class NativeBridge {
      * @param userPrompt 当前用户提问
      * @param context    资讯上下文（buildContext 的返回值）
      * @param model      模型名（deepseek-chat / deepseek-reasoner）
-     * @return {"model":..,"messages":[system(含上下文), 历史..., user], "stream":true}
+     * @param toolsJson  工具声明（ToolRegistry.buildToolsJson()），空串则不声明
+     * @return {"model":..,"messages":[system(含上下文), 历史...], "stream":true, "tools":[..]}
      */
-    public native String buildLlmRequest(String userPrompt, String context, String model);
+    public native String buildLlmRequest(String userPrompt, String context, String model, String toolsJson);
+
+    /**
+     * 工具调用续轮请求：在消息里追加 assistant(tool_calls 数组) + tool(结果数组)，
+     * 让模型基于工具结果生成最终回答。thinking 模型会带上 reasoning_content 回传。
+     * @param callsJson     [{"id":"call_x","name":"search_notices","arguments":"{...}"},...]
+     * @param resultsJson   [{"id":"call_x","content":"结果文本"},...]
+     * @param reasoning     上轮思考内容（thinking 模型必填，普通模型传空串）
+     */
+    public native String buildLlmToolRequest(String context, String model, String toolsJson,
+                                             String callsJson, String resultsJson, String reasoning);
 
     /** 解析 DeepSeek 非流式响应，提取 choices[0].message.content */
     public native String parseLlmReply(String responseJson);
@@ -47,6 +58,26 @@ public class NativeBridge {
      * 传入形如 "data: {...}" 的一行；非 data 行 / [DONE] / 无内容返回空串。
      */
     public native String parseLlmStreamLine(String line);
+
+    /**
+     * 解析 SSE 流式一行中的工具调用增量，返回 {"index":N,"id":..,"name":..,"arguments":..}。
+     * arguments 可能是分片（模型边生成边下发），需要调用方拼接；该行无工具调用时返回空串。
+     */
+    public native String parseLlmStreamToolCall(String line);
+
+    /** 解析 SSE 流式一行中的思考增量（thinking 模型），无则返回空串 */
+    public native String parseLlmStreamReasoning(String line);
+
+    // ===== 本地语义嵌入（C++ 实现：分词 + ONNX 推理） =====
+
+    /** 加载 bge 模型与词表（modelPath/vocabPath 为文件路径），成功返回 true */
+    public native boolean initBge(String modelPath, String vocabPath);
+
+    /** 文本 → 512 维归一化向量（需先 initBge） */
+    public native float[] embedText(String text);
+
+    /** 中文按句切分（。！？；… 换行）→ 句子数组 */
+    public native String[] splitSentences(String text);
 
     // ===== 聊天历史（多轮对话，C++ 内存维护） =====
 

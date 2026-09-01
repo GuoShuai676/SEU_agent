@@ -10,7 +10,7 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-    <!-- 顶部：助手信息，直接浮在渐变背景上 -->
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -52,86 +52,52 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="在线 · 基于大模型"
+                android:text="SEU · agent"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
         </LinearLayout>
+
+        <!-- 模型选择器 -->
+        <FrameLayout
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp">
+
+            <Spinner
+                android:id="@+id/sp_model"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_field"
+                android:minWidth="100dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="30dp"
+                android:spinnerMode="dropdown" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end|center_vertical"
+                android:layout_marginEnd="10dp"
+                android:clickable="false"
+                android:focusable="false"
+                android:text="▾"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp" />
+        </FrameLayout>
     </LinearLayout>
 
     <!-- 对话区 -->
-    <ScrollView
-        android:id="@+id/chat_scroll"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/chat_recycle"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:padding="16dp"
         android:scrollbars="none">
 
-        <LinearLayout
-            android:id="@+id/chat_container"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
+    </androidx.recyclerview.widget.RecyclerView>
 
-            <!-- 助手消息 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="start"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/bg_chat_bot"
-                    android:maxWidth="280dp"
-                    android:padding="12dp"
-                    android:text="你好！我是校园智能小助手，可以帮你查资讯、问问题、看课表。"
-                    android:textColor="@color/text_primary"
-                    android:textSize="15sp" />
-            </LinearLayout>
-
-            <!-- 用户消息 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:gravity="end"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/bg_chat_user"
-                    android:maxWidth="280dp"
-                    android:padding="12dp"
-                    android:text="最近有哪些选课通知？"
-                    android:textColor="#FFFFFF"
-                    android:textSize="15sp" />
-            </LinearLayout>
-
-            <!-- 助手消息 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:gravity="start"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/bg_chat_bot"
-                    android:maxWidth="280dp"
-                    android:padding="12dp"
-                    android:text="正在为你检索 2026 秋季学期的选课通知，稍等片刻…"
-                    android:textColor="@color/text_primary"
-                    android:textSize="15sp" />
-            </LinearLayout>
-        </LinearLayout>
-    </ScrollView>
-
-    <!-- 输入栏：透明底，白色输入胶囊悬浮在渐变上；底部留出导航栏高度 -->
+    <!-- 输入栏（底部留白由代码动态控制：平时避开悬浮导航栏，键盘弹出时贴键盘上沿） -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -139,7 +105,6 @@
         android:orientation="horizontal"
         android:paddingEnd="10dp"
         android:paddingStart="10dp"
-        android:layout_marginBottom="90dp"
         android:padding="0dp">
 
         <EditText
@@ -149,6 +114,8 @@
             android:layout_weight="1"
             android:background="@drawable/bg_chat_input"
             android:hint="输入你的问题…"
+            android:imeOptions="actionSend"
+            android:inputType="text"
             android:maxLines="3"
             android:minHeight="44dp"
             android:paddingStart="16dp"
@@ -166,12 +133,14 @@
             android:background="@drawable/bg_send_button">
 
             <TextView
+                android:id="@+id/tvsend"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:text="↑"
                 android:textColor="@color/brand_on_primary"
                 android:textSize="22sp"
+                android:clickable="true"
                 android:textStyle="bold" />
         </FrameLayout>
     </LinearLayout>
