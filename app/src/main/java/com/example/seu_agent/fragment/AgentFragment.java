@@ -4,6 +4,8 @@ import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -75,6 +77,15 @@ public class AgentFragment extends Fragment {
             .build();
 
     private volatile boolean waiting = false;    // 防止连点发送
+
+    // 流式渲染（固定帧率合并）：后台线程只写缓冲，UI 线程定时取"最新值"渲染。
+    // 避免每次增量都 post 导致刷新队列堆积、以及大文本反复 setText 卡顿。
+    private final Handler streamHandler = new Handler(Looper.getMainLooper());
+    private final StringBuilder streamBuf = new StringBuilder();
+    private boolean renderPending = false;
+    private long lastRenderTime = 0;
+    private int lastRenderedLen = 0;
+    private static final long RENDER_INTERVAL_MS = 66;   // ~15fps，肉眼流畅且不重
 
     // 底部留白：平时让出悬浮导航栏高度，键盘弹出时贴键盘上沿（跟随 IME 动画）
     private int navBarHeight;                     // 悬浮导航栏高度缓存
@@ -203,7 +214,46 @@ public class AgentFragment extends Fragment {
     }
 
     /**
-     * 后台线程：OkHttp 直连 DeepSeek，SSE 流式读回复。
+     * 后台线程追加流式增量：只写缓冲，并安排一次合并的 UI 渲染。
+     * 渲染排队中时不再重复 post（最新值覆盖旧值，旧帧自动丢弃）。
+     */
+    private void streamAppend(String delta) {
+        synchronized (streamBuf) {
+            streamBuf.append(delta);
+        }
+        if (!renderPending) {
+            renderPending = true;
+            long since = System.currentTimeMillis() - lastRenderTime;
+            long delay = since >= RENDER_INTERVAL_MS ? 0 : RENDER_INTERVAL_MS - since;
+            streamHandler.postDelayed(this::renderStream, delay);
+        }
+    }
+
+    /** UI 线程渲染：取缓冲最新文本直接改气泡，瞬时滚动到末尾 */
+    private void renderStream() {
+        renderPending = false;
+        lastRenderTime = System.currentTimeMillis();
+        String text;
+        synchronized (streamBuf) {
+            text = streamBuf.toString();
+        }
+        if (text.length() <= lastRenderedLen) return;   // 无新增，跳过
+        lastRenderedLen = text.length();
+        adapter.updateStreaming(rv, text);
+        rv.scrollToPosition(messages.size() - 1);
+    }
+
+    /** 新一轮对话前重置流式缓冲与渲染状态 */
+    private void resetStream() {
+        synchronized (streamBuf) {
+            streamBuf.setLength(0);
+        }
+        lastRenderedLen = 0;
+        renderPending = false;
+        streamHandler.removeCallbacksAndMessages(null);
+    }
+
+    /** 后台线程：OkHttp 直连 DeepSeek，SSE 流式读回复。
      * 工具调用流程：首轮请求带 tools → 模型返回 tool_calls → 本地执行工具
      *              → 结果回填续轮 → 模型生成最终回答（最多 3 轮，防止死循环）。
      */
@@ -212,6 +262,7 @@ public class AgentFragment extends Fragment {
         final Context ctx = getContext();
         if (act == null || ctx == null) return;
         waiting = true;
+        resetStream();   // 新一轮：清空流式缓冲
 
         new Thread(() -> {
             try {
@@ -266,17 +317,11 @@ public class AgentFragment extends Fragment {
                         // 逐行读 SSE：回答增量 + 工具调用增量
                         BufferedSource source = body.source();
                         String line;
-                        long lastUi = 0;
                         while ((line = source.readUtf8Line()) != null) {
                             String delta = bridge.parseLlmStreamLine(line);
                             if (delta != null && !delta.isEmpty()) {
                                 full.append(delta);
-                                long now = System.currentTimeMillis();
-                                if (now - lastUi > 40) {   // 节流刷新
-                                    lastUi = now;
-                                    final String acc = full.toString();
-                                    act.runOnUiThread(() -> cb.pnResult(acc));
-                                }
+                                streamAppend(delta);   // 固定帧率合并渲染
                             }
                             String rc = bridge.parseLlmStreamReasoning(line);
                             if (rc != null && !rc.isEmpty()) reasoning.append(rc);
@@ -406,6 +451,8 @@ public class AgentFragment extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        // 取消排队中的流式渲染回调，避免销毁后回调到已回收的 View
+        streamHandler.removeCallbacksAndMessages(null);
         if (padAnimator != null) {
             padAnimator.cancel();
             padAnimator = null;

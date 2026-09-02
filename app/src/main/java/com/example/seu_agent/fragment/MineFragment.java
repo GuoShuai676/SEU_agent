@@ -78,11 +78,14 @@ public class MineFragment extends Fragment {
         AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setView(dlg)
                 .setPositiveButton("保存", (d, w) -> {
-                    AppConfig.save(requireContext(),
+                    boolean saved = AppConfig.save(requireContext(),
                             AppConfig.getLlmModel(requireContext()),
                             etLlmUrl.getText().toString(),
                             etApiKey.getText().toString());
-                    Toast.makeText(getContext(), "已保存，立即生效", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), saved
+                                    ? "已加密保存，立即生效"
+                                    : "保存失败：系统密钥库不可用",
+                            Toast.LENGTH_SHORT).show();
                 })
                 .setNegativeButton("取消", null)
                 .show();

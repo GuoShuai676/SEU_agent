@@ -76,6 +76,31 @@ public void updateLastMessage(String newContent)
     notifyItemChanged(messages.size()-1);
 }
 
+/**
+ * 流式输出专用更新：最后一条气泡可见时直接改 ViewHolder 文本，
+ * 跳过 notifyItemChanged（避免每帧全量重绑导致卡顿）；不可见时回退 notify。
+ */
+public void updateStreaming(RecyclerView rv, String newContent)
+{
+    if(messages.isEmpty())return;
+    int pos=messages.size()-1;
+    ChatMessage last=messages.get(pos);
+    last.content=newContent;                       // 数据同步更新，滚动走远后重绑仍是完整文本
+    RecyclerView.ViewHolder h=rv.findViewHolderForAdapterPosition(pos);
+    if(h instanceof SentViewHolder)
+    {
+        ((SentViewHolder)h).tv.setText(newContent);
+    }
+    else if(h instanceof AgentViewHolder)
+    {
+        ((AgentViewHolder)h).tv.setText(newContent);
+    }
+    else
+    {
+        notifyItemChanged(pos);
+    }
+}
+
 static class SentViewHolder extends RecyclerView.ViewHolder{
     TextView tv;
     SentViewHolder(View itemView) {

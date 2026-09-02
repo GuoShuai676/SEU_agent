@@ -9,268 +9,117 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:paddingStart="12dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="92dp">
 
-    <!-- 标题 + 周切换 + 设置日期 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="课程表"
-            android:textColor="@color/text_primary"
-            android:textSize="20sp"
-            android:textStyle="bold" />
-
-        <View
-            android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="1" />
-
-        <!-- 上一周 -->
-        <TextView
-            android:id="@+id/btn_prev_week"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:background="@drawable/bg_avatar"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:text="‹"
-            android:textColor="@color/brand_primary"
-            android:textSize="20sp" />
-
-        <TextView
-            android:id="@+id/tv_week"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:paddingHorizontal="10dp"
-            android:text="第 1 周"
-            android:textColor="@color/text_primary"
-            android:textSize="14sp"
-            android:textStyle="bold" />
-
-        <!-- 下一周 -->
-        <TextView
-            android:id="@+id/btn_next_week"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:background="@drawable/bg_avatar"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:text="›"
-            android:textColor="@color/brand_primary"
-            android:textSize="20sp" />
-
-        <!-- 设置第一周日期 -->
-        <TextView
-            android:id="@+id/btn_set_first_date"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:background="@drawable/bg_tag"
-            android:clickable="true"
-            android:focusable="true"
-            android:paddingStart="8dp"
-            android:paddingTop="5dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="5dp"
-            android:text="设日期"
-            android:textColor="@color/brand_primary_dark"
-            android:textSize="11sp" />
-    </LinearLayout>
-
-    <!-- 课表卡片：行=节次(1~13)，列=星期(周一~周日)，一屏放下无滚动 -->
-    <com.google.android.material.card.MaterialCardView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        app:cardBackgroundColor="@color/card_bg"
-        app:cardCornerRadius="14dp"
-        app:cardElevation="2dp"
-        app:strokeColor="@color/stroke_color"
-        app:strokeWidth="1dp">
-
-        <TableLayout
-            android:id="@+id/table_schedule"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="6dp"
-            android:stretchColumns="*">
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-            <!-- ===== 表头：节 + 周一~周日 ===== -->
-            <TableRow>
-                <TextView style="@style/CellHeader" android:text="节" />
-                <TextView style="@style/CellHeader" android:text="周一" />
-                <TextView style="@style/CellHeader" android:text="周二" />
-                <TextView style="@style/CellHeader" android:text="周三" />
-                <TextView style="@style/CellHeader" android:text="周四" />
-                <TextView style="@style/CellHeader" android:text="周五" />
-                <TextView style="@style/CellHeader" android:text="周六" />
-                <TextView style="@style/CellHeader" android:text="周日" />
-            </TableRow>
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="课程表"
+                    android:textColor="@color/text_primary"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tv_week_dates"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="设置开学日期后显示本周日期"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp" />
+            </LinearLayout>
 
-            <!-- ===== 第 1 节 ===== -->
-            <TableRow>
-                <TextView style="@style/CellHeader" android:text="1" />
-                <TextView style="@style/CellCourse1" android:text="高数" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellCourse4" android:text="英语" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-            </TableRow>
+            <TextView
+                android:id="@+id/btn_set_first_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_tag"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="7dp"
+                android:text="设置开学日"
+                android:textColor="@color/brand_primary_dark"
+                android:textSize="11sp" />
+        </LinearLayout>
 
-            <!-- ===== 第 2 节 ===== -->
-            <TableRow>
-                <TextView style="@style/CellHeader" android:text="2" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellCourse3" android:text="大物" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellCourse2" android:text="计网" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-            </TableRow>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+            <TextView
+                android:id="@+id/btn_prev_week"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:background="@drawable/bg_avatar"
+                android:gravity="center"
+                android:text="‹"
+                android:textColor="@color/brand_primary"
+                android:textSize="24sp" />
+            <TextView
+                android:id="@+id/tv_week"
+                android:layout_width="110dp"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="第 1 周"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/btn_next_week"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:background="@drawable/bg_avatar"
+                android:gravity="center"
+                android:text="›"
+                android:textColor="@color/brand_primary"
+                android:textSize="24sp" />
+        </LinearLayout>
 
-            <!-- ===== 第 3 节 ===== -->
-            <TableRow>
-                <TextView style="@style/CellHeader" android:text="3" />
-                <TextView style="@style/CellCourse2" android:text="线代" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-            </TableRow>
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="8dp"
+            android:layout_weight="1"
+            app:cardBackgroundColor="@color/card_bg"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="2dp"
+            app:strokeColor="@color/stroke_color"
+            app:strokeWidth="1dp">
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:fillViewport="true">
+                <TableLayout
+                    android:id="@+id/table_schedule"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="6dp" />
+            </ScrollView>
+        </com.google.android.material.card.MaterialCardView>
 
-            <!-- ===== 第 4 节 ===== -->
-            <TableRow>
-                <TextView style="@style/CellHeader" android:text="4" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellCourse1" android:text="体育" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-            </TableRow>
-
-            <!-- ===== 第 5 节 ===== -->
-            <TableRow>
-                <TextView style="@style/CellHeader" android:text="5" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellCourse3" android:text="选修" />
-            </TableRow>
-
-            <!-- ===== 第 6 节 ===== -->
-            <TableRow>
-                <TextView style="@style/CellHeader" android:text="6" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-            </TableRow>
-
-            <!-- ===== 第 7 节 ===== -->
-            <TableRow>
-                <TextView style="@style/CellHeader" android:text="7" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-            </TableRow>
-
-            <!-- ===== 第 8 节 ===== -->
-            <TableRow>
-                <TextView style="@style/CellHeader" android:text="8" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-            </TableRow>
-
-            <!-- ===== 第 9 节 ===== -->
-            <TableRow>
-                <TextView style="@style/CellHeader" android:text="9" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-            </TableRow>
-
-            <!-- ===== 第 10 节 ===== -->
-            <TableRow>
-                <TextView style="@style/CellHeader" android:text="10" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-            </TableRow>
-
-            <!-- ===== 第 11 节 ===== -->
-            <TableRow>
-                <TextView style="@style/CellHeader" android:text="11" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-            </TableRow>
-
-            <!-- ===== 第 12 节 ===== -->
-            <TableRow>
-                <TextView style="@style/CellHeader" android:text="12" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-            </TableRow>
-
-            <!-- ===== 第 13 节 ===== -->
-            <TableRow>
-                <TextView style="@style/CellHeader" android:text="13" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-                <TextView style="@style/CellEmpty" />
-            </TableRow>
-        </TableLayout>
-    </com.google.android.material.card.MaterialCardView>
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_add_course"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="10dp"
+            android:text="＋ 添加课程"
+            android:textAllCaps="false"
+            android:textStyle="bold"
+            app:backgroundTint="@color/brand_primary"
+            app:cornerRadius="14dp" />
     </LinearLayout>
 </FrameLayout>
