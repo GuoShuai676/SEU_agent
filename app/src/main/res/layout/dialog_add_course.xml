@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="4dp">
+        <EditText
+            android:id="@+id/et_course_name"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_field"
+            android:hint="课程名称（必填）"
+            android:paddingHorizontal="14dp"
+            android:singleLine="true" />
+        <EditText
+            android:id="@+id/et_course_location"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_field"
+            android:hint="教室，例如：教一-101"
+            android:paddingHorizontal="14dp"
+            android:singleLine="true" />
+        <EditText
+            android:id="@+id/et_course_teacher"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_field"
+            android:hint="教师（选填）"
+            android:paddingHorizontal="14dp"
+            android:singleLine="true" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="上课时间"
+            android:textColor="@color/text_primary"
+            android:textStyle="bold" />
+        <Spinner
+            android:id="@+id/sp_course_day"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_field" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+            <Spinner
+                android:id="@+id/sp_start_section"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_field" />
+            <TextView
+                android:layout_width="36dp"
+                android:layout_height="48dp"
+                android:gravity="center"
+                android:text="至"
+                android:textColor="@color/text_secondary" />
+            <Spinner
+                android:id="@+id/sp_end_section"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_field" />
+        </LinearLayout>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="教学周范围"
+            android:textColor="@color/text_primary"
+            android:textStyle="bold" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Spinner
+                android:id="@+id/sp_start_week"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_field" />
+            <TextView
+                android:layout_width="36dp"
+                android:layout_height="48dp"
+                android:gravity="center"
+                android:text="至"
+                android:textColor="@color/text_secondary" />
+            <Spinner
+                android:id="@+id/sp_end_week"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_field" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

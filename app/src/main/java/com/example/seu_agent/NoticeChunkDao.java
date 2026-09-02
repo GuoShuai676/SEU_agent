@@ -1,0 +1,28 @@
+package com.example.seu_agent;
+
+import androidx.room.Dao;
+import androidx.room.Insert;
+import androidx.room.OnConflictStrategy;
+import androidx.room.Query;
+
+import java.util.List;
+
+/**
+ * 句子向量 DAO：(url, text) 唯一，重复写入 REPLACE 覆盖。
+ */
+@Dao
+public interface NoticeChunkDao {
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void upsertAll(List<NoticeChunk> list);
+
+    @Query("SELECT * FROM notice_chunks")
+    List<NoticeChunk> getAll();
+
+    /** 清理父资讯已不存在的句子（资讯被爬虫移除时） */
+    @Query("DELETE FROM notice_chunks WHERE url NOT IN (SELECT url FROM notices)")
+    void deleteOrphans();
+
+    @Query("SELECT COUNT(*) FROM notice_chunks")
+    int count();
+}
