@@ -131,7 +131,7 @@ Java_com_example_seu_1agent_NativeBridge_isApiOk(JNIEnv* env, jobject, jstring j
 }
 
 
-// ---------- 从本地检索结果构建 LLM 上下文 ----------
+// 把本地检索结果排成模型上下文
 // itemsJson: [{"title":..,"date":..,"content":..},...]（手机本地 Room 检索结果）
 // 输出："【date】title\ncontent\n\n..."（最多 5 条，正文截断 800 字）
 extern "C" JNIEXPORT jstring JNICALL
@@ -154,20 +154,27 @@ Java_com_example_seu_1agent_NativeBridge_buildContext(JNIEnv* env, jobject, jstr
 }
 
 
-// 组装 system 提示：有检索上下文 → 要求引用具体信息；没有 → 普通校园助手
+// system prompt
 static std::string BuildSystemPrompt(const std::string& context) {
+    const std::string react =
+            "\n\n你可以使用工具完成任务。收到问题后先在内部制定一个简短计划，不要向用户展示思维链。"
+            "需要事实或外部信息时调用工具；互不依赖的工具可以在同一轮一起调用。"
+            "每次得到工具结果后，把它当作观察结果重新检查并动态调整计划。"
+            "信息不足时可以继续调用其他工具；信息足够后停止调用并给出直接、完整的最终回答。"
+            "不得编造工具没有返回的事实，也不要重复调用参数完全相同的工具。";
     if (!context.empty()) {
         return "你是东南大学校园智能助手。请优先引用下面【相关资讯】中的具体信息回答"
                "（日期、时间、地点、对象、截止日期、报名方式等）；"
-               "资讯里没有的信息请如实说明，不要编造。\n\n"
+               "资讯里没有的信息请如实说明，不要编造。" + react + "\n\n"
                "=== 相关资讯 ===\n" + context + "\n=== 资讯结束 ===";
     }
     return "你是东南大学校园智能助手，回答校园相关问题。如果用户的问题涉及具体的"
-           "教务通知、讲座或实践信息，请告知用户可以在资讯页查看，不要凭空编造细节。";
+           "教务通知、讲座或实践信息，请告知用户可以在资讯页查看，不要凭空编造细节。"
+           + react;
 }
 
 
-// 构建 DeepSeek 聊天请求 JSON
+// 首轮聊天请求
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_seu_1agent_NativeBridge_buildLlmRequest(
         JNIEnv* env, jobject, jstring jPrompt, jstring jContext, jstring jModel, jstring jTools) {
@@ -175,7 +182,7 @@ Java_com_example_seu_1agent_NativeBridge_buildLlmRequest(
     std::string context = jstr(env, jContext);
     std::string model = jstr(env, jModel);
     std::string toolsJson = jstr(env, jTools);
-    if (model.empty()) model = "deepseek-chat";
+    if (model.empty()) model = "deepseek-v4-flash";
 
     std::string sys = BuildSystemPrompt(context);
 
@@ -185,7 +192,6 @@ Java_com_example_seu_1agent_NativeBridge_buildLlmRequest(
     for (const auto& [role, content] : g_chatHistory) {
         ss << ",{\"role\":\"" << role << "\",\"content\":\"" << Json_Convert(content) << "\"}";
     }
-    // 本次提问已在 sendMessage 时写入历史，这里不再重复追加
     ss << "],\"stream\":true";
     if (!toolsJson.empty()) {
         ss << ",\"tools\":" << toolsJson << ",\"tool_choice\":\"auto\"";
@@ -195,19 +201,19 @@ Java_com_example_seu_1agent_NativeBridge_buildLlmRequest(
 }
 
 
-// 工具调用续轮请求：assistant(tool_calls 数组) + tool(结果数组) → 模型生成最终回答
-// thinking 模型必须把上轮的 reasoning_content 一并回传，否则 400
+// 工具调用后的续轮请求
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_seu_1agent_NativeBridge_buildLlmToolRequest(
         JNIEnv* env, jobject, jstring jContext, jstring jModel, jstring jTools,
-        jstring jCalls, jstring jResults, jstring jReasoning) {
+        jstring jTrace, jstring jCalls, jstring jResults, jstring jReasoning) {
     std::string context = jstr(env, jContext);
     std::string model = jstr(env, jModel);
     std::string toolsJson = jstr(env, jTools);
+    JsonValue trace = JsonValue::parse(jstr(env, jTrace));     // 之前完成的工具交互
     JsonValue calls = JsonValue::parse(jstr(env, jCalls));     // [{"id":..,"name":..,"arguments":..},...]
     JsonValue results = JsonValue::parse(jstr(env, jResults)); // [{"id":..,"content":..},...]
     std::string reasoning = jstr(env, jReasoning);
-    if (model.empty()) model = "deepseek-chat";
+    if (model.empty()) model = "deepseek-v4-flash";
 
     static std::atomic<int> g_callSeq{0};
 
@@ -218,34 +224,49 @@ Java_com_example_seu_1agent_NativeBridge_buildLlmToolRequest(
     for (const auto& [role, content] : g_chatHistory) {
         ss << ",{\"role\":\"" << role << "\",\"content\":\"" << Json_Convert(content) << "\"}";
     }
-    // assistant 消息：回传思考内容 + 全部工具调用
-    ss << ",{\"role\":\"assistant\"";
-    if (!reasoning.empty()) {
-        ss << ",\"reasoning_content\":\"" << Json_Convert(reasoning) << "\"";
+    auto appendExchange = [&](const JsonValue& exchangeCalls, const JsonValue& exchangeResults,
+                              const std::string& exchangeReasoning) {
+        ss << ",{\"role\":\"assistant\"";
+        if (!exchangeReasoning.empty()) {
+            ss << ",\"reasoning_content\":\"" << Json_Convert(exchangeReasoning) << "\"";
+        }
+        ss << ",\"content\":null,\"tool_calls\":[";
+        for (size_t i = 0; i < exchangeCalls.size(); i++) {
+            const JsonValue* c = exchangeCalls.at(i);
+            const JsonValue* id = c ? c->find("id") : nullptr;
+            const JsonValue* name = c ? c->find("name") : nullptr;
+            const JsonValue* args = c ? c->find("arguments") : nullptr;
+            std::string idS = (id && !id->asString().empty())
+                    ? id->asString() : ("call_" + std::to_string(++g_callSeq));
+            if (i > 0) ss << ",";
+            ss << "{\"id\":\"" << Json_Convert(idS)
+               << "\",\"type\":\"function\",\"function\":{\"name\":\""
+               << Json_Convert(name ? name->asString() : "") << "\",\"arguments\":\""
+               << Json_Convert(args ? args->asString() : "{}") << "\"}}";
+        }
+        ss << "]}";
+        for (size_t i = 0; i < exchangeResults.size(); i++) {
+            const JsonValue* r = exchangeResults.at(i);
+            const JsonValue* rid = r ? r->find("id") : nullptr;
+            const JsonValue* content = r ? r->find("content") : nullptr;
+            ss << ",{\"role\":\"tool\",\"tool_call_id\":\""
+               << Json_Convert(rid ? rid->asString() : "") << "\",\"content\":\""
+               << Json_Convert(content ? content->asString() : "") << "\"}";
+        }
+    };
+
+    // 每次续轮都重新附上此前全部 Action / Observation，模型才能动态调整计划。
+    for (size_t i = 0; i < trace.size(); i++) {
+        const JsonValue* item = trace.at(i);
+        const JsonValue* oldCalls = item ? item->find("calls") : nullptr;
+        const JsonValue* oldResults = item ? item->find("results") : nullptr;
+        const JsonValue* oldReasoning = item ? item->find("reasoning") : nullptr;
+        if (oldCalls && oldResults) {
+            appendExchange(*oldCalls, *oldResults,
+                           oldReasoning ? oldReasoning->asString() : "");
+        }
     }
-    ss << ",\"content\":null,\"tool_calls\":[";
-    for (size_t i = 0; i < calls.size(); i++) {
-        const JsonValue* c = calls.at(i);
-        const JsonValue* id = c ? c->find("id") : nullptr;
-        const JsonValue* name = c ? c->find("name") : nullptr;
-        const JsonValue* args = c ? c->find("arguments") : nullptr;
-        std::string idS = (id && !id->asString().empty())
-                ? id->asString() : ("call_" + std::to_string(++g_callSeq));
-        if (i > 0) ss << ",";
-        ss << "{\"id\":\"" << Json_Convert(idS) << "\",\"type\":\"function\",\"function\":{"
-           << "\"name\":\"" << Json_Convert(name ? name->asString() : "") << "\",\"arguments\":\""
-           << Json_Convert(args ? args->asString() : "{}") << "\"}}";
-    }
-    ss << "]}";
-    // 工具执行结果消息（每条对应一个 tool_call_id）
-    for (size_t i = 0; i < results.size(); i++) {
-        const JsonValue* r = results.at(i);
-        const JsonValue* rid = r ? r->find("id") : nullptr;
-        const JsonValue* rcontent = r ? r->find("content") : nullptr;
-        ss << ",{\"role\":\"tool\",\"tool_call_id\":\""
-           << Json_Convert(rid ? rid->asString() : "") << "\",\"content\":\""
-           << Json_Convert(rcontent ? rcontent->asString() : "") << "\"}";
-    }
+    appendExchange(calls, results, reasoning);
     ss << "],\"stream\":true";
     if (!toolsJson.empty()) {
         ss << ",\"tools\":" << toolsJson << ",\"tool_choice\":\"auto\"";
@@ -286,8 +307,7 @@ Java_com_example_seu_1agent_NativeBridge_parseLlmStreamLine(JNIEnv* env, jobject
 }
 
 
-//  解析 SSE 流式一行中的工具调用增量，返回 {"id":..,"name":..,"arguments":..}
-//  DeepSeek 会把工具调用的 id/name 一次性下发，arguments 分片下发，这里原样返回让 Java 拼接
+// 取 SSE 中的一段工具调用
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_seu_1agent_NativeBridge_parseLlmStreamToolCall(JNIEnv* env, jobject, jstring jLine) {
     std::string line = jstr(env, jLine);
@@ -306,7 +326,7 @@ Java_com_example_seu_1agent_NativeBridge_parseLlmStreamToolCall(JNIEnv* env, job
     const JsonValue* tc = tcs->at(0);
     if (!tc) return env->NewStringUTF("");
 
-    // 组装合法 JSON（避免尾逗号）
+    // 组装合法 JSON
     std::string out = "{";
     bool first = true;
     auto addField = [&](const std::string& key, const std::string& val) {
@@ -331,7 +351,7 @@ Java_com_example_seu_1agent_NativeBridge_parseLlmStreamToolCall(JNIEnv* env, job
 }
 
 
-//  解析 SSE 流式一行中的思考增量（thinking 模型：deepseek-v4-flash / reasoner 等）
+// 取 reasoning_content
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_seu_1agent_NativeBridge_parseLlmStreamReasoning(JNIEnv* env, jobject, jstring jLine) {
     std::string line = jstr(env, jLine);
@@ -350,7 +370,7 @@ Java_com_example_seu_1agent_NativeBridge_parseLlmStreamReasoning(JNIEnv* env, jo
 }
 
 
-// ---------- 聊天历史（多轮对话） ----------
+// 聊天历史
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_seu_1agent_NativeBridge_addChatMessage(
         JNIEnv* env, jobject, jstring jText, jboolean isUser) {

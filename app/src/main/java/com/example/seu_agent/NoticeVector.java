@@ -8,10 +8,7 @@ import androidx.room.PrimaryKey;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-/**
- * 资讯语义向量表（本地 RAG v2）。
- * vector 存 float[512] 的字节序列（小端）；用 url 与 notices 对应。
- */
+
 @Entity(tableName = "notice_vectors")
 public class NoticeVector {
 

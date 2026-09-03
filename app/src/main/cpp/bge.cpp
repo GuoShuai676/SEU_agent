@@ -22,6 +22,7 @@
 #include <memory>
 #include <fstream>
 #include <cmath>
+#include <sstream>
 
 #include "onnxruntime_cxx_api.h"
 
@@ -32,7 +33,7 @@
 //  UTF-8 工具
 // ---------------------------------------------------------------
 
-// 解码 s[i] 处的一个 UTF-8 字符：返回码点 cp 与占用字节数 len
+// 解码 s[i] 处的一个 UTF-8 字符
 static bool DecodeUtf8(const std::string& s, size_t i, uint32_t& cp, int& len) {
     unsigned char c = (unsigned char) s[i];
     if (c < 0x80) { cp = c; len = 1; return true; }
@@ -104,9 +105,19 @@ private:
     std::unordered_map<std::string, int> vocab_;
     int maxWordLen_ = 0;
 
-    // 基础分词：中文逐字，其余按空白切
+    // 将暂存的英文、数字等内容按空格拆开，加入最终 token 列表。
+    void FlushBuffer(std::string& buffer, std::vector<std::string>& tokens) {
+        std::istringstream words(buffer);
+        std::string word;
+        while (words >> word) {
+            tokens.push_back(word);
+        }
+        buffer.clear();
+    }
+
+    // 基础分词
     std::vector<std::string> BasicTokenize(const std::string& text) {
-        // 清洗：控制字符 → 空格
+        // 清洗：去除与含义无关的控制字符以及decodeUTF8函数读取表示受损的字符
         std::string cleaned;
         cleaned.reserve(text.size());
         for (size_t i = 0; i < text.size();) {
@@ -117,39 +128,31 @@ private:
             i += len;
         }
 
-        std::vector<std::string> out;
-        std::string buf;
-        auto flush = [&]() {
-            size_t p = 0;
-            while (p < buf.size()) {
-                while (p < buf.size() && isspace((unsigned char) buf[p])) p++;
-                size_t q = p;
-                while (q < buf.size() && !isspace((unsigned char) buf[q])) q++;
-                if (q > p) out.push_back(buf.substr(p, q - p));
-                p = q;
-            }
-            buf.clear();
-        };
-
+        std::vector<std::string> tokens;
+        std::string nonChineseBuffer;
         for (size_t i = 0; i < cleaned.size();) {
             uint32_t cp; int len;
             if (!DecodeUtf8(cleaned, i, cp, len)) { i++; continue; }
             if (IsCjk(cp)) {
-                if (!buf.empty()) flush();
-                out.push_back(cleaned.substr(i, len));
+                // 有汉字先处理缓冲区
+                FlushBuffer(nonChineseBuffer, tokens);
+                tokens.push_back(cleaned.substr(i, len));
             } else {
-                buf.append(cleaned, i, len);
+                // 非中文先塞进缓冲区
+                nonChineseBuffer.append(cleaned, i, len);
             }
             i += len;
         }
-        if (!buf.empty()) flush();
-        return out;
+        //最后所有的非中文数据弹出
+        FlushBuffer(nonChineseBuffer, tokens);
+        return tokens;
     }
 
-    // WordPiece：最长前缀匹配，续接片段加 "##"；整词匹配不到 → [UNK]
+    // 最长token匹配
     std::vector<std::string> WordPiece(const std::vector<std::string>& tokens) {
         std::vector<std::string> out;
         for (const std::string& token : tokens) {
+            //如果大小超过训练时的最大，直接返回UNK
             if (token.size() > (size_t) maxWordLen_) { out.push_back("[UNK]"); continue; }
             std::vector<std::string> pieces;
             std::string cur = token;
@@ -201,9 +204,7 @@ static std::vector<std::string> SplitSentences(const std::string& text) {
     return out;
 }
 
-// ---------------------------------------------------------------
-//  ONNX Runtime 会话（函数内静态，线程安全；Run 可并发）
-// ---------------------------------------------------------------
+//bge state
 
 namespace {
 
@@ -234,7 +235,7 @@ static std::string jstr(JNIEnv* env, jstring j) {
     return s;
 }
 
-// 加载模型 + 词表；失败返回 false（幂等：重复调用会重建会话）
+// 加载模型 + 词表
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_example_seu_1agent_NativeBridge_initBge(JNIEnv* env, jobject, jstring jModelPath, jstring jVocabPath) {
     std::string modelPath = jstr(env, jModelPath);
@@ -267,7 +268,7 @@ Java_com_example_seu_1agent_NativeBridge_initBge(JNIEnv* env, jobject, jstring j
     }
 }
 
-// 文本 → float[512]（CLS + L2 归一化）；失败返回 null
+// 文本 → float[512]
 extern "C" JNIEXPORT jfloatArray JNICALL
 Java_com_example_seu_1agent_NativeBridge_embedText(JNIEnv* env, jobject, jstring jText) {
     BgeState& st = State();
@@ -311,7 +312,7 @@ Java_com_example_seu_1agent_NativeBridge_embedText(JNIEnv* env, jobject, jstring
     }
 }
 
-// 中文按句切分 → String[]
+// 中文按句切分
 extern "C" JNIEXPORT jobjectArray JNICALL
 Java_com_example_seu_1agent_NativeBridge_splitSentences(JNIEnv* env, jobject, jstring jText) {
     std::string text = jstr(env, jText);

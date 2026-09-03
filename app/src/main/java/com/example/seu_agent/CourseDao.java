@@ -15,13 +15,12 @@ public interface CourseDao {
     @Delete
     void delete(Course course);
 
-    @Query("SELECT * FROM courses WHERE startWeek <= :week AND endWeek >= :week "
-            + "ORDER BY dayOfWeek, startSection")
-    List<Course> getForWeek(int week);
+    @Query("SELECT * FROM courses ORDER BY id DESC")
+    List<Course> getAll();
 
-    @Query("SELECT COUNT(*) FROM courses WHERE dayOfWeek = :day "
-            + "AND startWeek <= :endWeek AND endWeek >= :startWeek "
-            + "AND startSection <= :endSection AND endSection >= :startSection")
-    int countConflicts(int day, int startSection, int endSection,
-                       int startWeek, int endWeek);
+    @Query("SELECT * FROM courses WHERE dayOfWeek = :day "
+            + "AND startWeek <= :week AND endWeek >= :week "
+            + "AND (weekType = 0 OR (weekType = 1 AND :week % 2 = 1) "
+            + "OR (weekType = 2 AND :week % 2 = 0)) ORDER BY startSection")
+    List<Course> getForDay(int day, int week);
 }

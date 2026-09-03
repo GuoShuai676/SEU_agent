@@ -11,13 +11,16 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.seu_agent.R;
 import com.example.seu_agent.data.ChatMessage;
 
+import io.noties.markwon.Markwon;
+
 import java.util.List;
 
-public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.MessageViewHolder> {
 private static final int TYPE_SENT=1;
 
 private static final int TYPE_RECV=2;
 private List<ChatMessage> messages;
+private Markwon markwon;
 public ChatAdapter(List<ChatMessage>m)
 {
     this.messages=m;
@@ -30,31 +33,24 @@ public int getItemViewType(int position)
 
     @NonNull
     @Override
-    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public MessageViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        if (markwon == null) markwon = Markwon.create(parent.getContext());
         LayoutInflater inflater=LayoutInflater.from(parent.getContext());
         if(viewType==TYPE_SENT)
         {
             View view=inflater.inflate(R.layout.item_message_sent,parent,false);
-            return new SentViewHolder(view);
+            return new MessageViewHolder(view, false, markwon);
         }
         else
         {
             View view =inflater.inflate(R.layout.item_message_agent,parent,false);
-            return new AgentViewHolder(view);
+            return new MessageViewHolder(view, true, markwon);
         }
     }
 
     @Override
-    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
-    ChatMessage m=messages.get(position);
-    if(holder instanceof SentViewHolder)
-    {
-        ((SentViewHolder)holder).bind(m);
-    }
-    else
-    {
-        ((AgentViewHolder)holder).bind(m);
-    }
+    public void onBindViewHolder(@NonNull MessageViewHolder holder, int position) {
+        holder.bind(messages.get(position));
     }
 
     @Override
@@ -77,8 +73,7 @@ public void updateLastMessage(String newContent)
 }
 
 /**
- * 流式输出专用更新：最后一条气泡可见时直接改 ViewHolder 文本，
- * 跳过 notifyItemChanged（避免每帧全量重绑导致卡顿）；不可见时回退 notify。
+ * 流式输出
  */
 public void updateStreaming(RecyclerView rv, String newContent)
 {
@@ -86,44 +81,34 @@ public void updateStreaming(RecyclerView rv, String newContent)
     int pos=messages.size()-1;
     ChatMessage last=messages.get(pos);
     last.content=newContent;                       // 数据同步更新，滚动走远后重绑仍是完整文本
-    RecyclerView.ViewHolder h=rv.findViewHolderForAdapterPosition(pos);
-    if(h instanceof SentViewHolder)
-    {
-        ((SentViewHolder)h).tv.setText(newContent);
-    }
-    else if(h instanceof AgentViewHolder)
-    {
-        ((AgentViewHolder)h).tv.setText(newContent);
-    }
-    else
-    {
-        notifyItemChanged(pos);
-    }
+    RecyclerView.ViewHolder found=rv.findViewHolderForAdapterPosition(pos);
+    if(found == null) notifyItemChanged(pos);
+    else ((MessageViewHolder)found).setStreamingText(newContent);
 }
 
-static class SentViewHolder extends RecyclerView.ViewHolder{
-    TextView tv;
-    SentViewHolder(View itemView) {
+static class MessageViewHolder extends RecyclerView.ViewHolder {
+    final TextView tv;
+    final boolean isAgent;
+    final Markwon markwon;
+
+    MessageViewHolder(View itemView, boolean isAgent, Markwon markwon) {
         super(itemView);
-        tv=itemView.findViewById(R.id.message_sent);
+        this.isAgent=isAgent;
+        this.markwon=markwon;
+        if(isAgent) tv=itemView.findViewById(R.id.message_agent);
+        else tv=itemView.findViewById(R.id.message_sent);
     }
-    void bind(ChatMessage m)
-    {
-        tv.setText(m.content);
+
+    void bind(ChatMessage message) {
+        String content=message.content == null ? "" : message.content;
+        if(isAgent) markwon.setMarkdown(tv, content);
+        else tv.setText(content);
+    }
+
+    void setStreamingText(String text) {
+        tv.setText(text);
     }
 }
-
-    static class AgentViewHolder extends RecyclerView.ViewHolder{
-        TextView tv;
-        AgentViewHolder(View itemView) {
-            super(itemView);
-            tv=itemView.findViewById(R.id.message_agent);
-        }
-        void bind(ChatMessage m)
-        {
-            tv.setText(m.content);
-        }
-    }
 
 
 }

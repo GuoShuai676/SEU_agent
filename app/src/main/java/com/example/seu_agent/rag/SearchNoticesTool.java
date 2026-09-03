@@ -10,10 +10,7 @@ import org.json.JSONObject;
 
 import java.util.List;
 
-/**
- * 资讯检索工具（第一个内置工具）：模型判断需要查校园通知时自主调用。
- * 检索策略：按句语义检索（SemanticSearch.topChunks）→ 没命中再按标题关键词（Room LIKE）兜底。
- */
+/** 给模型用的校园资讯检索。 */
 public class SearchNoticesTool implements AgentTool {
 
     private final Context ctx;
@@ -45,11 +42,9 @@ public class SearchNoticesTool implements AgentTool {
     public String execute(String argumentsJson) throws Exception {
         String keyword = new JSONObject(argumentsJson).optString("keyword", "").trim();
         if (keyword.isEmpty()) return "请提供检索关键词";
-
-        // ① 按句语义检索（带相关性门控）
         List<NoticeChunk> chunks = SemanticSearch.topChunks(ctx, keyword, 3);
         if (chunks.isEmpty()) {
-            // ② 语义没命中 → 标题关键词兜底
+            // 向量没命中时再试标题关键字
             List<Notice> hits = AppDatabase.get(ctx).noticeDao().search(keyword);
             if (hits.size() > 3) hits = hits.subList(0, 3);
             if (hits.isEmpty()) return "未找到与「" + keyword + "」相关的资讯";
@@ -64,7 +59,6 @@ public class SearchNoticesTool implements AgentTool {
             return sb.toString().trim();
         }
 
-        // 句子结果：每条带父资讯标题/日期
         StringBuilder sb = new StringBuilder();
         for (NoticeChunk c : chunks) {
             sb.append("【").append(c.publishDate == null ? "" : c.publishDate).append("】")

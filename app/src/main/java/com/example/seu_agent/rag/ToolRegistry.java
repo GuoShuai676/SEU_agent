@@ -7,18 +7,11 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * 工具注册表：集中管理所有 AgentTool，负责
- * ① 生成 tools 声明 JSON（拼进 DeepSeek 请求，让模型知道有哪些工具）；
- * ② 按工具名派发执行。
- *
- * 扩展方式：registry.register(new MyTool()) 一行注册即可，其余流程不用动。
- */
+// 模型返回工具名以后从这里找到具体实现
 public class ToolRegistry {
 
     private final Map<String, AgentTool> tools = new LinkedHashMap<>();
 
-    /** 注册工具（同名覆盖） */
     public void register(AgentTool tool) {
         tools.put(tool.getName(), tool);
     }
@@ -31,7 +24,6 @@ public class ToolRegistry {
         return tools.isEmpty();
     }
 
-    /** 生成 OpenAI 风格 tools 数组 JSON；没有任何工具或组装失败时返回空串（请求不带 tools） */
     public String buildToolsJson() {
         if (tools.isEmpty()) return "";
         try {
@@ -52,7 +44,6 @@ public class ToolRegistry {
         }
     }
 
-    /** 执行工具；工具不存在或执行出错时返回错误文本（模型会看到并自行处理） */
     public String execute(String name, String argumentsJson) {
         AgentTool t = tools.get(name);
         if (t == null) return "未知工具：" + name + "，请勿调用不存在的工具";

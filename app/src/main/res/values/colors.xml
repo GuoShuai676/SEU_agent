@@ -27,15 +27,6 @@
     <color name="chat_bot_bg">#FFFFFFFF</color>
     <color name="chat_user_bg">#FF2FB8A5</color>
 
-    <!-- 课表课程色块 -->
-    <color name="course_red">#FFFFE3E0</color>
-    <color name="course_blue">#FFE1ECFF</color>
-    <color name="course_green">#FFE2F5E9</color>
-    <color name="course_yellow">#FFFFF3D6</color>
-    <color name="course_purple">#FFECEAFD</color>
-    <color name="course_header">#FF3A3F4B</color>
-    <color name="course_empty">#FFFAFBFD</color>
-
     <!-- 徽标 -->
     <color name="badge_red">#FFE53935</color>
 </resources>

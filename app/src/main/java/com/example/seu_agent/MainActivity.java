@@ -14,7 +14,6 @@ import android.view.View;
 import android.widget.TextView;
 
 import com.example.seu_agent.fragment.AgentFragment;
-import com.example.seu_agent.fragment.ClassTableFragment;
 import com.example.seu_agent.fragment.MineFragment;
 import com.example.seu_agent.fragment.NewsFragment;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -39,7 +38,6 @@ public class MainActivity extends AppCompatActivity {
         list = new ArrayList<>();
         list.add(new NewsFragment());
         list.add(new AgentFragment());
-        list.add(new ClassTableFragment());
         list.add(new MineFragment());
         ShowFragment(list.get(0));
 
@@ -71,10 +69,7 @@ public class MainActivity extends AppCompatActivity {
                     ShowFragment(list.get(0));
                 else if (id==R.id.menu_agent)
                     ShowFragment(list.get(1));
-                else if (id==R.id.menu_classtable) {
-                    ShowFragment(list.get(2));
-                }
-                else ShowFragment(list.get(3));
+                else ShowFragment(list.get(2));
                 return true;
             }
         });

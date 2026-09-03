@@ -65,6 +65,8 @@ dependencies {
     implementation(libs.blurview)
     // 网络（拉资讯 / 直连 DeepSeek）
     implementation(libs.okhttp)
+    // AI 回复的基础 Markdown 渲染（标题、列表、粗体、引用、代码、链接）
+    implementation("io.noties.markwon:core:4.6.2")
     // 本地数据库（缓存资讯 / 存 embedding 向量）
     implementation(libs.room.runtime)
     annotationProcessor(libs.room.compiler)

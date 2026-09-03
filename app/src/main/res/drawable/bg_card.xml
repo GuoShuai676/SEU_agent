@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 通用白色圆角卡片：news 资讯条目、mine 菜单分组、课表容器等 -->
+<!-- 通用白色圆角卡片 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <solid android:color="@color/card_bg" />

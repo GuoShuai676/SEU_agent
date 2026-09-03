@@ -19,7 +19,6 @@ public interface NoticeChunkDao {
     @Query("SELECT * FROM notice_chunks")
     List<NoticeChunk> getAll();
 
-    /** 清理父资讯已不存在的句子（资讯被爬虫移除时） */
     @Query("DELETE FROM notice_chunks WHERE url NOT IN (SELECT url FROM notices)")
     void deleteOrphans();
 
