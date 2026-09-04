@@ -6,6 +6,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -13,6 +15,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -29,6 +32,7 @@ import com.example.seu_agent.Notice;
 import com.example.seu_agent.NoticeDao;
 import com.example.seu_agent.R;
 import com.example.seu_agent.adapter.NewsAdapter;
+import com.example.seu_agent.tool.WeatherTool;
 import com.google.android.material.tabs.TabLayout;
 
 import org.json.JSONArray;
@@ -44,9 +48,26 @@ import okhttp3.Response;
 /** 校园资讯页，本地先显示，云端数据回来后再刷新。 */
 public class NewsFragment extends Fragment {
 
+    private static final long WEATHER_REFRESH_INTERVAL = 10 * 60 * 1000L;
+    private static final String WEATHER_CACHE = "weather_cache";
+
     private RecyclerView rvNews;
     private final NewsAdapter adapter = new NewsAdapter();
     private final OkHttpClient httpClient = new OkHttpClient();
+    private final WeatherTool weatherTool = new WeatherTool();
+    private final Handler weatherHandler = new Handler(Looper.getMainLooper());
+
+    private TextView weatherTemp;
+    private TextView weatherCity;
+    private TextView weatherDesc;
+    private boolean weatherLoading;
+    private final Runnable weatherRefreshTask = new Runnable() {
+        @Override
+        public void run() {
+            loadWeather();
+            weatherHandler.postDelayed(this, WEATHER_REFRESH_INTERVAL);
+        }
+    };
 
     EditText SearchBox;
     private String currentTag = "";
@@ -71,6 +92,12 @@ public class NewsFragment extends Fragment {
             return insets;
         });
         SearchBox=view.findViewById(R.id.et_search);
+
+        weatherTemp = view.findViewById(R.id.tv_weather_temp);
+        weatherCity = view.findViewById(R.id.tv_weather_city);
+        weatherDesc = view.findViewById(R.id.tv_weather_desc);
+        showCachedWeather();
+        view.findViewById(R.id.weather_card).setOnClickListener(v -> loadWeather());
 
         rvNews = view.findViewById(R.id.rv_news);
         rvNews.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -123,6 +150,80 @@ public class NewsFragment extends Fragment {
             public void onTextChanged(CharSequence s, int start, int before, int count) {
             }
         });
+    }
+
+    private void loadWeather() {
+        if (weatherLoading || weatherTemp == null) return;
+        weatherLoading = true;
+
+        new Thread(() -> {
+            try {
+                String raw = weatherTool.execute("{\"city\":\"南京\"}");
+                JSONObject weather = new JSONObject(raw);
+                String city = weather.optString("地区", "南京");
+                String temp = String.valueOf(weather.opt("温度℃"));
+                String desc = weather.optString("当前天气", "天气未知");
+                String humidity = String.valueOf(weather.opt("湿度%"));
+
+                if ("null".equals(temp)) temp = "--";
+                if (!"null".equals(humidity)) desc += " · 湿度" + humidity + "%";
+
+                String finalTemp = temp;
+                String finalDesc = desc;
+                weatherHandler.post(() -> {
+                    weatherLoading = false;
+                    if (weatherTemp == null) return;
+                    showWeather(finalTemp, city, finalDesc);
+                    requireContext().getSharedPreferences(WEATHER_CACHE, Context.MODE_PRIVATE)
+                            .edit()
+                            .putString("temp", finalTemp)
+                            .putString("city", city)
+                            .putString("desc", finalDesc)
+                            .putLong("time", System.currentTimeMillis())
+                            .apply();
+                });
+            } catch (Exception e) {
+                weatherHandler.post(() -> {
+                    weatherLoading = false;
+                    if (weatherDesc != null) weatherDesc.setText("天气暂不可用");
+                });
+            }
+        }).start();
+    }
+
+    private void showCachedWeather() {
+        Context context = getContext();
+        if (context == null) return;
+        android.content.SharedPreferences cache = context.getSharedPreferences(
+                WEATHER_CACHE, Context.MODE_PRIVATE);
+        String temp = cache.getString("temp", "--");
+        String city = cache.getString("city", "南京");
+        String desc = cache.getString("desc", "获取天气中");
+        showWeather(temp, city, desc);
+    }
+
+    private void showWeather(String temp, String city, String desc) {
+        String temperature = temp + "°";
+        if (!temperature.contentEquals(weatherTemp.getText())) weatherTemp.setText(temperature);
+        if (!city.contentEquals(weatherCity.getText())) weatherCity.setText(city);
+        if (!desc.contentEquals(weatherDesc.getText())) weatherDesc.setText(desc);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        weatherHandler.removeCallbacks(weatherRefreshTask);
+        Context context = getContext();
+        long lastUpdate = context == null ? 0 : context.getSharedPreferences(
+                WEATHER_CACHE, Context.MODE_PRIVATE).getLong("time", 0);
+        if (System.currentTimeMillis() - lastUpdate >= WEATHER_REFRESH_INTERVAL) loadWeather();
+        weatherHandler.postDelayed(weatherRefreshTask, WEATHER_REFRESH_INTERVAL);
+    }
+
+    @Override
+    public void onPause() {
+        weatherHandler.removeCallbacks(weatherRefreshTask);
+        super.onPause();
     }
 
     private void loadByTag(String tag) {
@@ -235,6 +336,11 @@ public class NewsFragment extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        weatherHandler.removeCallbacks(weatherRefreshTask);
+        weatherTemp = null;
+        weatherCity = null;
+        weatherDesc = null;
+        weatherLoading = false;
         if (padAnimator != null) {
             padAnimator.cancel();
             padAnimator = null;

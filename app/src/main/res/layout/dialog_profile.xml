@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <EditText android:id="@+id/et_profile_name" style="@style/ProfileInput" android:hint="姓名" />
+        <EditText android:id="@+id/et_profile_student_id" style="@style/ProfileInput" android:hint="学号" android:inputType="text" />
+        <EditText android:id="@+id/et_profile_major" style="@style/ProfileInput" android:hint="专业，例如：软件工程" />
+        <EditText android:id="@+id/et_profile_grade" style="@style/ProfileInput" android:hint="年级，例如：2024级" />
+        <EditText android:id="@+id/et_profile_hobbies" style="@style/ProfileInput" android:hint="爱好，例如：摄影、篮球" />
+    </LinearLayout>
+</ScrollView>

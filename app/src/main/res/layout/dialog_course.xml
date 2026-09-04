@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+        <EditText android:id="@+id/et_course_name" style="@style/ProfileInput" android:hint="课程名称（必填）" />
+        <EditText android:id="@+id/et_course_teacher" style="@style/ProfileInput" android:hint="任课教师" />
+        <EditText android:id="@+id/et_course_location" style="@style/ProfileInput" android:hint="上课地点" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:text="上课时间"
+            android:textColor="@color/text_secondary" />
+        <Spinner android:id="@+id/sp_course_day" style="@style/ProfileInput" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Spinner android:id="@+id/sp_start_section" style="@style/ProfileInput" android:layout_width="0dp" android:layout_weight="1" />
+            <TextView android:layout_width="36dp" android:layout_height="48dp" android:gravity="center" android:text="至" />
+            <Spinner android:id="@+id/sp_end_section" style="@style/ProfileInput" android:layout_width="0dp" android:layout_weight="1" />
+        </LinearLayout>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:text="教学周"
+            android:textColor="@color/text_secondary" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Spinner android:id="@+id/sp_start_week" style="@style/ProfileInput" android:layout_width="0dp" android:layout_weight="1" />
+            <TextView android:layout_width="36dp" android:layout_height="48dp" android:gravity="center" android:text="至" />
+            <Spinner android:id="@+id/sp_end_week" style="@style/ProfileInput" android:layout_width="0dp" android:layout_weight="1" />
+        </LinearLayout>
+        <Spinner android:id="@+id/sp_week_type" style="@style/ProfileInput" />
+        <EditText
+            android:id="@+id/et_course_description"
+            style="@style/ProfileInput"
+            android:layout_height="90dp"
+            android:gravity="top"
+            android:hint="课程内容、考核方式等"
+            android:maxLines="4"
+            android:singleLine="false" />
+    </LinearLayout>
+</ScrollView>
