@@ -42,6 +42,7 @@ import com.example.seu_agent.tool.GetLocationTool;
 import com.example.seu_agent.tool.GetCoursesTool;
 import com.example.seu_agent.tool.GettimeTool;
 import com.example.seu_agent.tool.WeatherTool;
+import com.example.seu_agent.tool.WebSearchTool;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -195,6 +196,7 @@ public class AgentFragment extends Fragment {
         registry.register(new GettimeTool());
         registry.register(new GetLocationTool());
         registry.register(new GetCoursesTool(requireContext()));
+        registry.register(new WebSearchTool());
         final Context ctx = getContext();
         if (ctx != null) {
             new Thread(() -> SemanticSearch.warmUp(ctx)).start();
