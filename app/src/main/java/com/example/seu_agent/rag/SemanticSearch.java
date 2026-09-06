@@ -13,7 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** 本地句子级语义检索。 */
+/** 本地句子语义检索。 */
 public class SemanticSearch {
     public static final float SCORE_THRESHOLD = 0.5f;
 

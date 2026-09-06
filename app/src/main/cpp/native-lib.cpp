@@ -131,29 +131,6 @@ Java_com_example_seu_1agent_NativeBridge_isApiOk(JNIEnv* env, jobject, jstring j
 }
 
 
-// 把本地检索结果排成模型上下文
-// itemsJson: [{"title":..,"date":..,"content":..},...]（手机本地 Room 检索结果）
-// 输出："【date】title\ncontent\n\n..."（最多 5 条，正文截断 800 字）
-extern "C" JNIEXPORT jstring JNICALL
-Java_com_example_seu_1agent_NativeBridge_buildContext(JNIEnv* env, jobject, jstring jItems) {
-    JsonValue root = JsonValue::parse(jstr(env, jItems));
-    if (!root.isArray()) return env->NewStringUTF("");
-    std::ostringstream ctx;
-    int count = 0;
-    for (size_t i = 0; i < root.size() && count < 5; i++) {
-        const JsonValue* it = root.at(i);
-        if (!it) continue;
-        std::string title = it->find("title") ? it->find("title")->asString() : "";
-        std::string date = it->find("date") ? it->find("date")->asString() : "";
-        std::string content = it->find("content") ? it->find("content")->asString() : "";
-        if (content.size() > 800) content = content.substr(0, 800) + "...";
-        count++;
-        ctx << "【" << date << "】" << title << "\n" << content << "\n\n";
-    }
-    return env->NewStringUTF(SanitizeUTF8(ctx.str()).c_str());
-}
-
-
 // system prompt
 static std::string BuildSystemPrompt(const std::string& context) {
     const std::string react =
@@ -163,10 +140,10 @@ static std::string BuildSystemPrompt(const std::string& context) {
             "信息不足时可以继续调用其他工具；信息足够后停止调用并给出直接、完整的最终回答。"
             "不得编造工具没有返回的事实，也不要重复调用参数完全相同的工具。";
     if (!context.empty()) {
-        return "你是东南大学校园智能助手。请优先引用下面【相关资讯】中的具体信息回答"
-               "（日期、时间、地点、对象、截止日期、报名方式等）；"
-               "资讯里没有的信息请如实说明，不要编造。" + react + "\n\n"
-               "=== 相关资讯 ===\n" + context + "\n=== 资讯结束 ===";
+        return "你是东南大学校园智能助手。下面是通过语义检索找到的历史对话，"
+               "仅用于理解用户的上下文和以前讨论过的内容，不代表学校官方事实；"
+               "涉及实时信息或校园通知时仍应调用对应工具核实。" + react + "\n\n"
+               "=== 相关历史记忆 ===\n" + context + "\n=== 历史记忆结束 ===";
     }
     return "你是东南大学校园智能助手，回答校园相关问题。如果用户的问题涉及具体的"
            "教务通知、讲座或实践信息，请告知用户可以在资讯页查看，不要凭空编造细节。"
@@ -376,7 +353,9 @@ Java_com_example_seu_1agent_NativeBridge_addChatMessage(
         JNIEnv* env, jobject, jstring jText, jboolean isUser) {
     std::string text = jstr(env, jText);
     g_chatHistory.push_back({isUser ? "user" : "assistant", text});
-    if (g_chatHistory.size() > 20) g_chatHistory.erase(g_chatHistory.begin());  // 保留最近 20 条
+    // 请求时保留最近六轮完整对话和当前问题；回答完成后裁剪为 12 条。
+    size_t limit = isUser ? 13 : 12;
+    while (g_chatHistory.size() > limit) g_chatHistory.erase(g_chatHistory.begin());
 }
 
 extern "C" JNIEXPORT void JNICALL

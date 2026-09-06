@@ -10,7 +10,7 @@ import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
 
-/** BGE 的 Java 入口，分词和 ONNX 推理在 C++ 里做。 */
+/** BGE的embedding编码部分 */
 public class BgeEmbedder {
 
     public static final int DIM = 512;
@@ -21,7 +21,6 @@ public class BgeEmbedder {
     private static volatile boolean inited = false;
     private static final NativeBridge BRIDGE = new NativeBridge();
 
-    // 多处调用也只会真正初始化一次
     public static boolean ensureInit(Context ctx) {
         if (inited) return true;
         synchronized (BgeEmbedder.class) {
@@ -43,7 +42,9 @@ public class BgeEmbedder {
 
     public static float[] embed(Context ctx, String text) {
         if (!ensureInit(ctx)) return null;
-        return BRIDGE.embedText(text);
+        synchronized (BRIDGE) {
+            return BRIDGE.embedText(text);
+        }
     }
 
     public static List<String> splitSentences(Context ctx, String content) {
@@ -52,7 +53,6 @@ public class BgeEmbedder {
         return arr == null ? java.util.Collections.emptyList() : Arrays.asList(arr);
     }
 
-    // native 初始化需要文件路径，不能直接传 assets 流
     private static File copyAssetToCache(Context ctx, String name) throws Exception {
         File f = new File(ctx.getCacheDir(), name);
         try (InputStream in = ctx.getAssets().open(name);

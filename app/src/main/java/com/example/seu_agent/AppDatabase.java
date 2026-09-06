@@ -10,8 +10,8 @@ import androidx.room.RoomDatabase;
  * 本地数据库入口。
  * room,用于存储资讯信息和向量表，便于rag检索
  */
-@Database(entities = {Notice.class, NoticeVector.class, NoticeChunk.class, Course.class},
-        version = 7, exportSchema = false)
+@Database(entities = {Notice.class, NoticeVector.class, NoticeChunk.class, Course.class,
+        MemoryChunk.class}, version = 9, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     private static volatile AppDatabase INSTANCE;
@@ -24,6 +24,8 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract NoticeChunkDao noticeChunkDao();
 
     public abstract CourseDao courseDao();
+
+    public abstract MemoryChunkDao memoryChunkDao();
 
     public static AppDatabase get(Context ctx) {
         if (INSTANCE == null) {

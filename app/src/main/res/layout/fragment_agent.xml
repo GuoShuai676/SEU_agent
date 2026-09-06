@@ -19,18 +19,17 @@
         android:padding="16dp">
 
         <FrameLayout
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:background="@drawable/bg_avatar">
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:background="@drawable/bg_avatar"
+            android:clipToOutline="true">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:text="AI"
-                android:textColor="@color/brand_primary"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="校园智能助手叮东"
+                android:scaleType="centerCrop"
+                android:src="@drawable/agent_avatar_dingdong" />
         </FrameLayout>
 
         <LinearLayout
@@ -43,7 +42,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="智能小助手"
+                android:text="叮咚"
                 android:textColor="@color/text_primary"
                 android:textSize="18sp"
                 android:textStyle="bold" />

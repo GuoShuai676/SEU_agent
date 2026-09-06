@@ -12,8 +12,6 @@ import java.util.List;
 public class AppConfig {
 
     private static final String PREFS = "app_config";
-
-
     private static final String KEY_LLM_MODEL = "llm_model";
     private static final String KEY_LLM_URL = "llm_url";
     private static final String KEY_API_KEY = "api_key";

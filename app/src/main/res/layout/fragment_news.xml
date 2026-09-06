@@ -38,7 +38,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="东南大学 · SEU"
+                android:text="SEU · News"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
         </LinearLayout>

@@ -3,6 +3,7 @@ package com.example.seu_agent.adapter;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -68,6 +69,8 @@ public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.VH> {
         holder.tvTitle.setText(item.title);
         holder.tvTime.setText(item.time);
         holder.tvTag.setText(item.tag);
+        holder.ivCover.setImageResource(coverForTag(item.tag));
+        holder.tvCoverLabel.setText(labelForTag(item.tag));
 
         // 整张卡片可点击，回调给外面处理
         holder.itemView.setOnClickListener(v -> {
@@ -80,17 +83,37 @@ public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.VH> {
         return items.size();
     }
 
+    private int coverForTag(String tag) {
+        if (tag == null) return R.drawable.news_cover_general;
+        if (tag.contains("教务")) return R.drawable.news_cover_academic;
+        if (tag.contains("讲座")) return R.drawable.news_cover_lecture;
+        if (tag.contains("实践")) return R.drawable.news_cover_practice;
+        return R.drawable.news_cover_general;
+    }
+
+    private String labelForTag(String tag) {
+        if (tag == null) return "校园";
+        if (tag.contains("教务")) return "教务";
+        if (tag.contains("讲座")) return "讲座";
+        if (tag.contains("实践")) return "实践";
+        return "校园";
+    }
+
     /** ViewHolder */
     static class VH extends RecyclerView.ViewHolder {
         final TextView tvTitle;
         final TextView tvTime;
         final TextView tvTag;
+        final TextView tvCoverLabel;
+        final ImageView ivCover;
 
         VH(View itemView) {
             super(itemView);
             tvTitle = itemView.findViewById(R.id.tv_title);
             tvTime = itemView.findViewById(R.id.tv_time);
             tvTag = itemView.findViewById(R.id.tv_tag);
+            tvCoverLabel = itemView.findViewById(R.id.tv_cover_label);
+            ivCover = itemView.findViewById(R.id.iv_cover);
         }
     }
 }

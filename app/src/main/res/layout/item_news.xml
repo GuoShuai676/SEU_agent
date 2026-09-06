@@ -19,15 +19,27 @@
         <FrameLayout
             android:layout_width="96dp"
             android:layout_height="70dp"
-            android:background="@drawable/bg_news_cover">
+            android:background="@drawable/bg_news_cover"
+            android:clipToOutline="true">
+
+            <ImageView
+                android:id="@+id/iv_cover"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="@null"
+                android:scaleType="centerCrop"
+                android:src="@drawable/news_cover_general" />
 
             <TextView
+                android:id="@+id/tv_cover_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:text="图"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
+                android:layout_gravity="bottom|start"
+                android:background="@drawable/bg_news_cover_label"
+                android:text="校园"
+                android:textColor="@android:color/white"
+                android:textSize="11sp"
+                android:textStyle="bold" />
         </FrameLayout>
 
         <LinearLayout

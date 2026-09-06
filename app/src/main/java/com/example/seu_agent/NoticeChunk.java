@@ -6,9 +6,7 @@ import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 /**
- * 资讯句子级语义向量表（RAG v2 按句检索）。
- * 一条资讯正文按句切分后，每句存一行（含父资讯标题/日期，便于拼上下文）。
- * (url, text) 唯一：重复同步时 REPLACE 覆盖。
+ “我的”页面 fragment UI交互
  */
 @Entity(tableName = "notice_chunks",
         indices = {@Index(value = {"url", "text"}, unique = true)})

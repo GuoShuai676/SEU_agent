@@ -11,8 +11,6 @@ public class NativeBridge {
     public native boolean isApiOk(String responseJson);
 
     // 把本地检索结果排成提示词
-    public native String buildContext(String itemsJson);
-
     // 大模型请求
     public native String buildLlmRequest(String userPrompt, String context, String model, String toolsJson);
 

@@ -30,13 +30,13 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.seu_agent.AppConfig;
 import com.example.seu_agent.AppDatabase;
 import com.example.seu_agent.NativeBridge;
-import com.example.seu_agent.NoticeChunk;
 import com.example.seu_agent.R;
 import com.example.seu_agent.adapter.ChatAdapter;
 import com.example.seu_agent.data.ChatMessage;
 import com.example.seu_agent.rag.SearchNoticesTool;
 import com.example.seu_agent.rag.SemanticSearch;
 import com.example.seu_agent.rag.ToolRegistry;
+import com.example.seu_agent.rag.ConversationMemory;
 import com.example.seu_agent.tool.GetMyProfileTool;
 import com.example.seu_agent.tool.GetLocationTool;
 import com.example.seu_agent.tool.GetCoursesTool;
@@ -73,9 +73,7 @@ public class AgentFragment extends Fragment {
     private EditText InputBox;
     private TextView sendButton;
 
-    private final NativeBridge bridge = new NativeBridge(); // JNI 桥
-
-    // 目前只有资讯检索，后面加工具时继续在 onViewCreated 里注册
+    private final NativeBridge bridge = new NativeBridge(); // JNI
     private final ToolRegistry registry = new ToolRegistry();
 
     private final OkHttpClient httpClient = new OkHttpClient.Builder()
@@ -189,7 +187,7 @@ public class AgentFragment extends Fragment {
                     "你好，我是东南大学智能小助手，可以问我关于教务、讲座、实践等校园资讯的问题～", false));
         }
 
-        // 注册工具，更新上下文
+        // 注册工具，便于在prompt中加入可用的上下文
         registry.register(new SearchNoticesTool(requireContext()));
         registry.register(new GetMyProfileTool(requireContext()));
         registry.register(new WeatherTool());
@@ -208,15 +206,12 @@ public class AgentFragment extends Fragment {
             Toast.makeText(getContext(), "上一条还在回复中…", Toast.LENGTH_SHORT).show();
             return;
         }
-
         adapter.addMessage(new ChatMessage(s, true));
         bridge.addChatMessage(s, true);
         rv.smoothScrollToPosition(messages.size() - 1);
 
-
         adapter.addMessage(new ChatMessage("…", false));
         rv.smoothScrollToPosition(messages.size() - 1);
-
 
         fetchAiResponse(s, response -> {
             requireActivity().runOnUiThread(() -> {
@@ -225,6 +220,8 @@ public class AgentFragment extends Fragment {
             });
         });
     }
+
+    //稳定速率流式输出，buf接收多次流式地内容，unix时间戳计算距离上次刷新地间隔
     private void streamAppend(String delta) {
         synchronized (streamBuf) {
             streamBuf.append(delta);
@@ -247,6 +244,9 @@ public class AgentFragment extends Fragment {
         if (text.length() <= lastRenderedLen) return;
         lastRenderedLen = text.length();
         adapter.updateStreaming(rv, text);
+        //pandaun用户是否正在recyclerview的底部，如果在就scroll，否则不跟用户抢屏幕
+        boolean atBottom =!rv.canScrollVertically(1);
+        if(atBottom)
         rv.scrollToPosition(messages.size() - 1);
     }
 
@@ -259,7 +259,7 @@ public class AgentFragment extends Fragment {
         streamHandler.removeCallbacksAndMessages(null);
     }
 
-    // 请求放在后台线程里。模型要用工具时，执行完再带着结果请求一次。
+    // 请求AI并接收回复
     private void fetchAiResponse(final String prompt, final ResponseCallback cb) {
         final Activity act = getActivity();
         final Context ctx = getContext();
@@ -268,6 +268,7 @@ public class AgentFragment extends Fragment {
         cancelRequested = false;
         updateSendButton(true);
         resetStream();
+        final int recentTurns = Math.min(6, Math.max(0, (messages.size() - 2) / 2));
 
         activeWorker = new Thread(() -> {
             try {
@@ -275,12 +276,12 @@ public class AgentFragment extends Fragment {
                 String llmUrl = AppConfig.getLlmUrl(ctx);
                 String model = AppConfig.getLlmModel(ctx);
                 if (apiKey.isEmpty() || llmUrl.isEmpty()) {
-                    act.runOnUiThread(() -> cb.pnResult("请先在「我的 → 设置」里填写 API Key 和接口地址"));
+                    act.runOnUiThread(() -> cb.deal("请先在「我的 → 设置」里填写 API Key 和接口地址"));
                     return;
                 }
 
                 String toolsJson = registry.buildToolsJson();
-                String context = buildLocalContext(ctx, prompt);
+                String context = ConversationMemory.findRelevant(ctx, prompt, 3, recentTurns);
 
                 String bodyJson = bridge.buildLlmRequest(prompt, context, model, toolsJson);
                 String finalText = null;
@@ -312,12 +313,12 @@ public class AgentFragment extends Fragment {
                             final String errDetail = detail;
                             android.util.Log.e("SEU_CHAT", "HTTP " + resp.code() + " body=" + errDetail
                                     + "\nreq=" + bodyJson);
-                            act.runOnUiThread(() -> cb.pnResult("请求失败：" + resp.code() + "\n" + errDetail));
+                            act.runOnUiThread(() -> cb.deal("请求失败：" + resp.code() + "\n" + errDetail));
                             return;
                         }
                         okhttp3.ResponseBody body = resp.body();
                         if (body == null) {
-                            act.runOnUiThread(() -> cb.pnResult("[空响应]"));
+                            act.runOnUiThread(() -> cb.deal("[空响应]"));
                             return;
                         }
 
@@ -327,7 +328,7 @@ public class AgentFragment extends Fragment {
                             String delta = bridge.parseLlmStreamLine(line);
                             if (delta != null && !delta.isEmpty()) {
                                 full.append(delta);
-                                streamAppend(delta);   // 固定帧率合并渲染
+                                streamAppend(delta);
                             }
                             String rc = bridge.parseLlmStreamReasoning(line);
                             if (rc != null && !rc.isEmpty()) reasoning.append(rc);
@@ -343,21 +344,20 @@ public class AgentFragment extends Fragment {
                                 if (o.has("id") && !o.isNull("id")) c.id = o.optString("id");
                                 if (o.has("name") && !o.isNull("name")) c.name = o.optString("name");
                                 String a = o.optString("arguments", "");
-                                if (!a.isEmpty()) c.args.append(a);
+                                    c.args.append(a);
                             }
                         }
                     }
 
                     if (!calls.isEmpty()) {
-                        // 参数是分段返回的，到这里才是完整的一次工具调用
                         resetStream();
-                        act.runOnUiThread(() -> cb.pnResult("正在调用工具…"));
+                        act.runOnUiThread(() -> cb.deal("ToolCalling…"));
                         JSONArray callsArr = new JSONArray();
                         JSONArray resultsArr = new JSONArray();
                         for (ToolCall c : calls.values()) {
                             if (cancelRequested) throw new InterruptedException("cancelled");
                             String args = c.args.toString();
-                            // 参数偶尔会被流截断，至少保证续轮 JSON 合法
+
                             if (!isValidJsonObject(args)) args = "{}";
                             if (c.id == null || c.id.isEmpty()) {
                                 c.id = "call_" + System.currentTimeMillis() + "_" + callsArr.length();
@@ -387,17 +387,19 @@ public class AgentFragment extends Fragment {
                 if (finalText == null || finalText.isEmpty()) finalText = "[无回复]";
                 final String done = finalText;
                 act.runOnUiThread(() -> {
-                    // 先取消排队中的纯文本刷新，避免它在 Markdown 渲染后又覆盖 TextView。
                     resetStream();
-                    cb.pnResult(done);
+                    cb.deal(done);
                 });
                 bridge.addChatMessage(done, false);
+                if (!done.startsWith("[")) {
+                    new Thread(() -> ConversationMemory.save(ctx, prompt, done)).start();
+                }
             } catch (Exception e) {
                 if (!cancelRequested) e.printStackTrace();
                 final String err = cancelRequested ? "已取消" : "[请求出错] " + e.getMessage();
                 act.runOnUiThread(() -> {
                     resetStream();
-                    cb.pnResult(err);
+                    cb.deal(err);
                 });
             } finally {
                 waiting = false;
@@ -514,32 +516,7 @@ public class AgentFragment extends Fragment {
         sendButton = null;
     }
 
-    // 短追问沿用聊天历史，其他问题从本地资讯里取最相关的五个片段
-    private String buildLocalContext(Context ctx, String question) {
-        try {
-
-            boolean shortFollowUp = question.length() < 12 && messages.size() >= 4;
-            if (shortFollowUp) return "";
-
-            List<NoticeChunk> chunks = SemanticSearch.topChunks(ctx, question, 5);
-            if (chunks.isEmpty()) return "";
-
-            JSONArray arr = new JSONArray();
-            for (NoticeChunk c : chunks) {
-                JSONObject o = new JSONObject();
-                o.put("title", c.title == null ? "" : c.title);
-                o.put("date", c.publishDate == null ? "" : c.publishDate);
-                o.put("content", c.text == null ? "" : c.text);
-                arr.put(o);
-            }
-            return bridge.buildContext(arr.toString());
-        } catch (Exception e) {
-            e.printStackTrace();
-            return "";
-        }
-    }
-
     interface ResponseCallback {
-        void pnResult(String result);
+        void deal(String result);
     }
 }
