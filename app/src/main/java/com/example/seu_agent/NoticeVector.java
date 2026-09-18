@@ -17,7 +17,7 @@ public class NoticeVector {
     public String url;
 
     @ColumnInfo(typeAffinity = ColumnInfo.BLOB)
-    public byte[] vector;   // float[512]
+    public byte[] vector;
 
     public NoticeVector() {
     }

@@ -1,6 +1,5 @@
 package com.example.seu_agent;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -9,43 +8,62 @@ import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 
 import android.os.Bundle;
-import android.view.MenuItem;
 import android.view.View;
-import android.widget.TextView;
 
 import com.example.seu_agent.fragment.AgentFragment;
 import com.example.seu_agent.fragment.MineFragment;
 import com.example.seu_agent.fragment.NewsFragment;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.android.material.navigation.NavigationBarView;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
-    // Used to load the 'seu_agent' library on application startup.
+    private static final String NEWS_TAG = "news";
+    private static final String AGENT_TAG = "agent";
+    private static final String MINE_TAG = "mine";
+
     static {
         System.loadLibrary("seu_agent");
     }
-    List<Fragment> list;
-    BottomNavigationView bottomnavigation;
+    private Fragment newsFragment;
+    private Fragment agentFragment;
+    private Fragment mineFragment;
+    private Fragment currentFragment;
+    private BottomNavigationView bottomNavigation;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        bottomnavigation=findViewById(R.id.navigation);
-        list = new ArrayList<>();
-        list.add(new NewsFragment());
-        list.add(new AgentFragment());
-        list.add(new MineFragment());
-        ShowFragment(list.get(0));
+        bottomNavigation = findViewById(R.id.navigation);
 
-        // 键盘弹出时淡出底部导航胶囊，收起时淡入，避免被键盘顶起/遮挡
+        FragmentManager fm = getSupportFragmentManager();
+        if (savedInstanceState == null) {
+            newsFragment = new NewsFragment();
+            agentFragment = new AgentFragment();
+            mineFragment = new MineFragment();
+            currentFragment = newsFragment;
+
+            fm.beginTransaction()
+                    .add(R.id.container, newsFragment, NEWS_TAG)
+                    .add(R.id.container, agentFragment, AGENT_TAG).hide(agentFragment)
+                    .add(R.id.container, mineFragment, MINE_TAG).hide(mineFragment)
+                    .commit();
+        } else {
+            newsFragment = fm.findFragmentByTag(NEWS_TAG);
+            agentFragment = fm.findFragmentByTag(AGENT_TAG);
+            mineFragment = fm.findFragmentByTag(MINE_TAG);
+
+            if (agentFragment != null && !agentFragment.isHidden())
+                currentFragment = agentFragment;
+            else if (mineFragment != null && !mineFragment.isHidden())
+                currentFragment = mineFragment;
+            else
+                currentFragment = newsFragment;
+        }
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main_root), (v, insets) -> {
             boolean imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime());
-            View nav = findViewById(R.id.navigation);
-            final View capsule = nav == null ? null : (View) nav.getParent();
+            View capsule = bottomNavigation;
             if (capsule != null) {
                 capsule.animate().cancel();
                 if (imeVisible) {
@@ -61,33 +79,22 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
-        bottomnavigation.setOnItemSelectedListener(new NavigationBarView.OnItemSelectedListener() {
-            @Override
-            public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-                int id=item.getItemId();
-                if(id==R.id.menu_news)
-                    ShowFragment(list.get(0));
-                else if (id==R.id.menu_agent)
-                    ShowFragment(list.get(1));
-                else ShowFragment(list.get(2));
-                return true;
-            }
+        bottomNavigation.setOnItemSelectedListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.menu_news) showFragment(newsFragment);
+            else if (id == R.id.menu_agent) showFragment(agentFragment);
+            else showFragment(mineFragment);
+            return true;
         });
     }
 
 
-    private void ShowFragment(Fragment f)
-    {
-        FragmentManager fragmentmanager=getSupportFragmentManager();
-        FragmentTransaction ft=fragmentmanager.beginTransaction();
-        ft.replace(R.id.container,f);
-        ft.commit();
+    private void showFragment(Fragment fragment) {
+        if (fragment == null || fragment == currentFragment) return;
+
+        FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
+        if (currentFragment != null) ft.hide(currentFragment);
+        ft.show(fragment).commit();
+        currentFragment = fragment;
     }
-
-
-    /**
-     * A native method that is implemented by the 'seu_agent' native library,
-     * which is packaged with this application.
-     */
-    public native String stringFromJNI();
 }

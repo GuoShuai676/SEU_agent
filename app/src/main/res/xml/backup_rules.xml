@@ -6,6 +6,5 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!-- Keystore 密钥不会随备份迁移；排除密文及其他接口配置，避免不可解密或泄露。 -->
     <exclude domain="sharedpref" path="app_config.xml"/>
 </full-backup-content>

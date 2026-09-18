@@ -6,10 +6,9 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
-import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -27,6 +26,7 @@ import com.example.seu_agent.AppDatabase;
 import com.example.seu_agent.Course;
 import com.example.seu_agent.CourseSchedule;
 import com.example.seu_agent.R;
+import com.example.seu_agent.tool.UserToolStore;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.text.SimpleDateFormat;
@@ -37,7 +37,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-/** 个人资料和应用设置。 */
 public class MineFragment extends Fragment {
 
     private TextView tvAvatar;
@@ -49,6 +48,9 @@ public class MineFragment extends Fragment {
     private TextView tvHobbies;
     private TextView tvFirstMonday;
     private LinearLayout courseList;
+    private View mineRoot;
+    private View mineScroll;
+    private View.OnLayoutChangeListener navLayoutListener;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -63,9 +65,12 @@ public class MineFragment extends Fragment {
         ViewCompat.setOnApplyWindowInsetsListener(view, (v, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(0, bars.top, 0, 0);
+            v.post(this::updateScrollBoundary);
             return insets;
         });
 
+        mineRoot = view;
+        mineScroll = view.findViewById(R.id.mine_scroll);
         tvAvatar = view.findViewById(R.id.tv_avatar);
         tvName = view.findViewById(R.id.tv_profile_name);
         tvSubtitle = view.findViewById(R.id.tv_profile_subtitle);
@@ -75,6 +80,7 @@ public class MineFragment extends Fragment {
         tvHobbies = view.findViewById(R.id.tv_hobbies);
         tvFirstMonday = view.findViewById(R.id.tv_first_monday);
         courseList = view.findViewById(R.id.ll_courses);
+        applyNavBarClearance();
 
         showProfile();
         showFirstMonday();
@@ -82,7 +88,7 @@ public class MineFragment extends Fragment {
         view.findViewById(R.id.btn_edit_profile).setOnClickListener(v -> showProfileDialog());
         view.findViewById(R.id.btn_add_course).setOnClickListener(v -> showCourseDialog());
         view.findViewById(R.id.btn_set_first_monday).setOnClickListener(v -> selectFirstMonday());
-        view.findViewById(R.id.menu_settings).setOnClickListener(v -> showSettingsDialog());
+        view.findViewById(R.id.menu_settings).setOnClickListener(v -> showSettingsMenuDialog());
     }
 
     private void showProfile() {
@@ -306,99 +312,73 @@ public class MineFragment extends Fragment {
         }).start();
     }
 
-    private void showSettingsDialog() {
-
-        View dlg = LayoutInflater.from(requireContext())
-                .inflate(R.layout.dialog_settings, null, false);
-
-        EditText etLlmUrl = dlg.findViewById(R.id.et_llm_url);
-        EditText etApiKey = dlg.findViewById(R.id.et_api_key);
-        LinearLayout llModels = dlg.findViewById(R.id.ll_models);
-        EditText etNewModel = dlg.findViewById(R.id.et_new_model);
-
-        etLlmUrl.setText(AppConfig.getLlmUrl(requireContext()));
-        etApiKey.setText(AppConfig.getApiKey(requireContext()));
-
-        refreshModels(llModels);
-
-        dlg.findViewById(R.id.btn_add_model).setOnClickListener(v -> {
-            String name = etNewModel.getText().toString().trim();
-            if (name.isEmpty()) return;
-            AppConfig.addModel(requireContext(), name);
-            AppConfig.setModel(requireContext(), name);
-            etNewModel.setText("");
-            refreshModels(llModels);
-        });
+    private void showSettingsMenuDialog() {
+        View content = LayoutInflater.from(requireContext())
+                .inflate(R.layout.dialog_settings_menu, null, false);
+        TextView summary = content.findViewById(R.id.tv_tool_config_summary);
+        int count = UserToolStore.load(requireContext()).size();
+        if (count > 0) summary.setText("已添加 " + count + " 个 HTTP API 工具");
 
         AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
-                .setView(dlg)
-                .setPositiveButton("保存", (d, w) -> {
-                    boolean saved = AppConfig.save(requireContext(),
-                            AppConfig.getLlmModel(requireContext()),
-                            etLlmUrl.getText().toString(),
-                            etApiKey.getText().toString());
-                    Toast.makeText(getContext(), saved
-                                    ? "保存成功，立即生效"
-                                    : "保存失败",
-                            Toast.LENGTH_SHORT).show();
-                })
-                .setNegativeButton("取消", null)
-                .show();
-
-        Window window = dialog.getWindow();
-        if (window != null) {
-            int screenW = getResources().getDisplayMetrics().widthPixels;
-            int width = Math.min((int) (screenW * 0.88f), dp(420));
-            window.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
-            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
-        }
+                .setTitle("设置")
+                .setView(content)
+                .setNegativeButton("关闭", null)
+                .create();
+        content.findViewById(R.id.menu_model_config).setOnClickListener(v -> {
+            dialog.dismiss();
+            SettingsDialogs.showModelSettings(this);
+        });
+        content.findViewById(R.id.menu_tool_config).setOnClickListener(v -> {
+            dialog.dismiss();
+            SettingsDialogs.showHttpTool(this);
+        });
+        content.findViewById(R.id.menu_prompt_config).setOnClickListener(v -> {
+            dialog.dismiss();
+            SettingsDialogs.showPromptSettings(this);
+        });
+        dialog.show();
     }
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
+    private void applyNavBarClearance() {
+        View nav = requireActivity().findViewById(R.id.navigation);
+        if (nav == null) return;
+        nav.post(this::updateScrollBoundary);
+        navLayoutListener = (v, l, t, r, b, oldL, oldT, oldR, oldB) ->
+                updateScrollBoundary();
+        nav.addOnLayoutChangeListener(navLayoutListener);
+    }
 
-    private void refreshModels(LinearLayout container) {
-        List<String> models = AppConfig.getModels(requireContext());
-        String current = AppConfig.getLlmModel(requireContext());
-        container.removeAllViews();
-        for (String name : models) {
-            View row = LayoutInflater.from(requireContext())
-                    .inflate(R.layout.item_model_row, container, false);
-            TextView tvName = row.findViewById(R.id.tv_model_name);
-            TextView tvCheck = row.findViewById(R.id.tv_model_check);
-            tvName.setText(name);
-            boolean active = name.equals(current);
-            tvName.setTextColor(getResources().getColor(
-                    active ? R.color.brand_primary : R.color.text_primary, null));
-            tvName.setTypeface(tvName.getTypeface(), active ? android.graphics.Typeface.BOLD
-                    : android.graphics.Typeface.NORMAL);
-            tvCheck.setVisibility(active ? View.VISIBLE : View.GONE);
+    private void updateScrollBoundary() {
+        if (mineRoot == null || mineScroll == null || getActivity() == null) return;
+        View nav = getActivity().findViewById(R.id.navigation);
+        if (nav == null || mineRoot.getHeight() == 0 || nav.getHeight() == 0) return;
 
-            row.setOnClickListener(v -> {
-                AppConfig.setModel(requireContext(), name);
-                refreshModels(container);
-            });
-            row.findViewById(R.id.btn_del_model).setOnClickListener(v -> {
-                if (AppConfig.getModels(requireContext()).size() <= 1) {
-                    Toast.makeText(getContext(), "至少保留一个模型", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                AppConfig.removeModel(requireContext(), name);
-                if (name.equals(AppConfig.getLlmModel(requireContext()))) {
+        int[] rootLocation = new int[2];
+        int[] navLocation = new int[2];
+        mineRoot.getLocationInWindow(rootLocation);
+        nav.getLocationInWindow(navLocation);
+        int navTopInRoot = navLocation[1] - rootLocation[1];
+        int bottomMargin = Math.max(0, mineRoot.getHeight() - navTopInRoot + dp(8));
 
-                    List<String> rest = AppConfig.getModels(requireContext());
-                    AppConfig.setModel(requireContext(), rest.isEmpty() ? AppConfig.DEFAULT_MODEL : rest.get(0));
-                }
-                refreshModels(container);
-            });
-            container.addView(row);
-        }
+        ViewGroup.LayoutParams raw = mineScroll.getLayoutParams();
+        if (!(raw instanceof FrameLayout.LayoutParams)) return;
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) raw;
+        if (params.bottomMargin == bottomMargin) return;
+        params.bottomMargin = bottomMargin;
+        mineScroll.setLayoutParams(params);
     }
 
     @Override
     public void onDestroyView() {
+        if (navLayoutListener != null && getActivity() != null) {
+            View nav = getActivity().findViewById(R.id.navigation);
+            if (nav != null) nav.removeOnLayoutChangeListener(navLayoutListener);
+        }
+        navLayoutListener = null;
         super.onDestroyView();
         tvAvatar = null;
         tvName = null;
@@ -409,5 +389,7 @@ public class MineFragment extends Fragment {
         tvHobbies = null;
         tvFirstMonday = null;
         courseList = null;
+        mineScroll = null;
+        mineRoot = null;
     }
 }

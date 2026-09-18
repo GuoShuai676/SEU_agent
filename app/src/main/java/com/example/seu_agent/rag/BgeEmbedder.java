@@ -10,7 +10,6 @@ import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
 
-/** BGE的embedding编码部分 */
 public class BgeEmbedder {
 
     public static final int DIM = 512;

@@ -6,12 +6,11 @@ import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.view.animation.DecelerateInterpolator;
-import android.view.inputmethod.EditorInfo;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
@@ -26,6 +25,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.SimpleItemAnimator;
 
 import com.example.seu_agent.AppConfig;
 import com.example.seu_agent.AppDatabase;
@@ -33,26 +33,23 @@ import com.example.seu_agent.NativeBridge;
 import com.example.seu_agent.R;
 import com.example.seu_agent.adapter.ChatAdapter;
 import com.example.seu_agent.data.ChatMessage;
-import com.example.seu_agent.rag.SearchNoticesTool;
 import com.example.seu_agent.rag.SemanticSearch;
 import com.example.seu_agent.rag.ToolRegistry;
 import com.example.seu_agent.rag.ConversationMemory;
-import com.example.seu_agent.tool.GetMyProfileTool;
-import com.example.seu_agent.tool.GetLocationTool;
-import com.example.seu_agent.tool.GetCoursesTool;
-import com.example.seu_agent.tool.GettimeTool;
-import com.example.seu_agent.tool.WeatherTool;
-import com.example.seu_agent.tool.WebSearchTool;
+import com.example.seu_agent.tool.AgentTools;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
+
+import eightbitlab.com.blurview.BlurView;
 
 import okhttp3.MediaType;
 import okhttp3.Call;
@@ -62,18 +59,17 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 import okio.BufferedSource;
 
-/** 小助手聊天页。 */
 public class AgentFragment extends Fragment {
 
     private static final int MAX_TOOL_ROUNDS = 5;
 
     private List<ChatMessage> messages = new ArrayList<>();
-    private ChatAdapter adapter;
-    private RecyclerView rv;
-    private EditText InputBox;
+    private ChatAdapter chatAdapter;
+    private RecyclerView chatList;
+    private EditText inputBox;
     private TextView sendButton;
 
-    private final NativeBridge bridge = new NativeBridge(); // JNI
+    private final NativeBridge bridge = new NativeBridge();
     private final ToolRegistry registry = new ToolRegistry();
 
     private final OkHttpClient httpClient = new OkHttpClient.Builder()
@@ -88,13 +84,15 @@ public class AgentFragment extends Fragment {
 
 
     private final Handler streamHandler = new Handler(Looper.getMainLooper());
+    private final Handler statusHandler = new Handler(Looper.getMainLooper());
     private final StringBuilder streamBuf = new StringBuilder();
     private boolean renderPending = false;
+    private volatile boolean answerStreaming = false;
+    private volatile int statusGeneration = 0;
     private long lastRenderTime = 0;
     private int lastRenderedLen = 0;
     private static final long RENDER_INTERVAL_MS = 66;
-    private int navBarHeight;                  //底部导航栏高度
-    private ValueAnimator padAnimator;  //动画
+    private ValueAnimator padAnimator;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -106,13 +104,11 @@ public class AgentFragment extends Fragment {
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // 给状态栏和键盘留位置
         ViewCompat.setOnApplyWindowInsetsListener(view, (v, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
             boolean imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime());
             if (imeVisible) {
-                // 键盘弹出
                 v.setPadding(0, bars.top, 0, ime.bottom+dp(5));
             } else {
                 v.setPadding(0, bars.top, 0, v.getPaddingBottom());
@@ -120,30 +116,30 @@ public class AgentFragment extends Fragment {
             }
             return insets;
         });
-        measureNavBarHeight();
-
-        rv = view.findViewById(R.id.chat_recycle);
+        chatList = view.findViewById(R.id.chat_recycle);
         LinearLayoutManager llm = new LinearLayoutManager(requireContext());
-        rv.setLayoutManager(llm);
-        adapter = new ChatAdapter(messages);
-        rv.setAdapter(adapter);
+        chatList.setLayoutManager(llm);
+        chatAdapter = new ChatAdapter(messages);
+        chatList.setAdapter(chatAdapter);
+        if (chatList.getItemAnimator() instanceof SimpleItemAnimator) {
+            ((SimpleItemAnimator) chatList.getItemAnimator()).setSupportsChangeAnimations(false);
+        }
 
-        InputBox = view.findViewById(R.id.et_chat_input);
+        inputBox = view.findViewById(R.id.et_chat_input);
         sendButton = view.findViewById(R.id.tvsend);
-        // 发送按钮
+        setupInputBlur(view);
         sendButton.setOnClickListener(v -> {
             if (waiting) {
                 cancelCurrentRequest();
                 return;
             }
-            String text = InputBox.getText().toString().trim();
+            String text = inputBox.getText().toString().trim();
             if (!text.isEmpty()) {
                 sendMessage(text);
-                InputBox.setText("");
+                inputBox.setText("");
             }
         });
 
-        // 右上角模型切换
         Spinner spModel = view.findViewById(R.id.sp_model);
         List<String> modelList = AppConfig.getModels(requireContext());
         ArrayAdapter<String> spAdapter = new ArrayAdapter<>(requireContext(),
@@ -167,38 +163,41 @@ public class AgentFragment extends Fragment {
             }
         });
 
-        // 键盘上的“发送”键
-        InputBox.setOnEditorActionListener((v, actionId, event) -> {
-            if (actionId == EditorInfo.IME_ACTION_SEND
-                    || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
-                    && event.getAction() == KeyEvent.ACTION_DOWN)) {
-                String text = InputBox.getText().toString().trim();
-                if (!text.isEmpty()) {
-                    sendMessage(text);
-                    InputBox.setText("");
-                }
-                return true;
-            }
-            return false;
-        });
-
-        if (adapter.getItemCount() == 0) {
-            adapter.addMessage(new ChatMessage(
+        if (chatAdapter.getItemCount() == 0) {
+            chatAdapter.addMessage(new ChatMessage(
                     "你好，我是东南大学智能小助手，可以问我关于教务、讲座、实践等校园资讯的问题～", false));
         }
 
-        // 注册工具，便于在prompt中加入可用的上下文
-        registry.register(new SearchNoticesTool(requireContext()));
-        registry.register(new GetMyProfileTool(requireContext()));
-        registry.register(new WeatherTool());
-        registry.register(new GettimeTool());
-        registry.register(new GetLocationTool());
-        registry.register(new GetCoursesTool(requireContext()));
-        registry.register(new WebSearchTool());
+        AgentTools.registerBuiltIns(requireContext(), registry);
         final Context ctx = getContext();
         if (ctx != null) {
             new Thread(() -> SemanticSearch.warmUp(ctx)).start();
         }
+    }
+
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        if (!hidden && isAdded()) AgentTools.registerUserTools(requireContext(), registry);
+    }
+
+    private void setupInputBlur(View view) {
+        ViewGroup chatArea = view.findViewById(R.id.chat_area);
+        BlurView inputBlur = view.findViewById(R.id.chat_input_blur);
+
+        inputBlur.setupWith(chatArea)
+                .setBlurRadius(14f)
+                .setBlurAutoUpdate(true);
+        inputBlur.setOutlineProvider(ViewOutlineProvider.BACKGROUND);
+        inputBlur.setClipToOutline(true);
+
+        inputBlur.addOnLayoutChangeListener((v, left, top, right, bottom,
+                                             oldLeft, oldTop, oldRight, oldBottom) -> {
+            int paddingBottom = v.getHeight() + dp(12);
+            if (chatList.getPaddingBottom() == paddingBottom) return;
+            chatList.setPadding(chatList.getPaddingLeft(), chatList.getPaddingTop(),
+                    chatList.getPaddingRight(), paddingBottom);
+        });
     }
 
     private void sendMessage(String s) {
@@ -206,23 +205,31 @@ public class AgentFragment extends Fragment {
             Toast.makeText(getContext(), "上一条还在回复中…", Toast.LENGTH_SHORT).show();
             return;
         }
-        adapter.addMessage(new ChatMessage(s, true));
+        chatAdapter.addMessage(new ChatMessage(s, true));
         bridge.addChatMessage(s, true);
-        rv.smoothScrollToPosition(messages.size() - 1);
+        chatList.smoothScrollToPosition(messages.size() - 1);
 
-        adapter.addMessage(new ChatMessage("…", false));
-        rv.smoothScrollToPosition(messages.size() - 1);
+        ChatMessage pending = new ChatMessage("", false);
+        pending.isLoading = true;
+        chatAdapter.addMessage(pending);
+        chatList.smoothScrollToPosition(messages.size() - 1);
 
         fetchAiResponse(s, response -> {
             requireActivity().runOnUiThread(() -> {
-                adapter.updateLastMessage(response);
-                rv.smoothScrollToPosition(messages.size() - 1);
+                chatAdapter.updateLastMessage(response);
+                chatList.smoothScrollToPosition(messages.size() - 1);
             });
         });
     }
 
-    //稳定速率流式输出，buf接收多次流式地内容，unix时间戳计算距离上次刷新地间隔
     private void streamAppend(String delta) {
+        if (!answerStreaming) {
+            answerStreaming = true;
+            stopWorkingStatus();
+            streamHandler.post(() -> {
+                if (chatAdapter != null) chatAdapter.finishLastMessageProcess();
+            });
+        }
         synchronized (streamBuf) {
             streamBuf.append(delta);
         }
@@ -243,11 +250,10 @@ public class AgentFragment extends Fragment {
         }
         if (text.length() <= lastRenderedLen) return;
         lastRenderedLen = text.length();
-        adapter.updateStreaming(rv, text);
-        //pandaun用户是否正在recyclerview的底部，如果在就scroll，否则不跟用户抢屏幕
-        boolean atBottom =!rv.canScrollVertically(1);
+        chatAdapter.updateStreaming(chatList, text);
+        boolean atBottom = !chatList.canScrollVertically(1);
         if(atBottom)
-        rv.scrollToPosition(messages.size() - 1);
+        chatList.scrollToPosition(messages.size() - 1);
     }
 
     private void resetStream() {
@@ -256,10 +262,61 @@ public class AgentFragment extends Fragment {
         }
         lastRenderedLen = 0;
         renderPending = false;
+        answerStreaming = false;
         streamHandler.removeCallbacksAndMessages(null);
     }
 
-    // 请求AI并接收回复
+    private void showWorkingStatus(String label) {
+        final int generation = ++statusGeneration;
+        final long startedAt = System.currentTimeMillis();
+        statusHandler.removeCallbacksAndMessages(null);
+        statusHandler.post(() -> {
+            if (generation == statusGeneration && waiting && chatAdapter != null) {
+                chatAdapter.startLastMessageProcess(label);
+            }
+        });
+        statusHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (generation != statusGeneration || !waiting || chatAdapter == null) return;
+                StringBuilder text = new StringBuilder(label);
+                long seconds = (System.currentTimeMillis() - startedAt) / 1000;
+                if (seconds >= 5) {
+                    text.append("\n已等待 ").append(seconds)
+                            .append(" 秒，仍在处理中，可点击 ■ 取消");
+                }
+                if (seconds >= 5) chatAdapter.updateLastMessageStatus(text.toString());
+                statusHandler.postDelayed(this, 1000);
+            }
+        });
+    }
+
+    private void stopWorkingStatus() {
+        statusGeneration++;
+        statusHandler.removeCallbacksAndMessages(null);
+    }
+
+    private String toolProgressText(String name, String args) {
+        if ("search_notices".equals(name)) {
+            String keyword = "";
+            try {
+                keyword = new JSONObject(args).optString("keyword", "").trim();
+            } catch (Exception ignored) {
+            }
+            if (keyword.length() > 24) keyword = keyword.substring(0, 24) + "…";
+            return keyword.isEmpty() ? "正在检索校园资讯" : "正在检索校园资讯 · " + keyword;
+        }
+        if ("get_weather".equals(name)) return "正在查询天气";
+        if ("add_http_tool".equals(name)) return "正在创建自定义工具";
+        if ("get_current_time".equals(name)) return "正在确认日期和时间";
+        if ("get_current_location".equals(name)) return "正在获取位置信息";
+        if ("get_my_courses".equals(name)) return "正在查询你的课表";
+        if ("GetMyProfile".equals(name)) return "正在读取个人资料";
+        if ("search_web".equals(name)) return "正在搜索网络资料";
+        if ("add_campus_task".equals(name)) return "正在添加待办日程";
+        return "正在调用工具获取资料";
+    }
+
     private void fetchAiResponse(final String prompt, final ResponseCallback cb) {
         final Activity act = getActivity();
         final Context ctx = getContext();
@@ -268,6 +325,7 @@ public class AgentFragment extends Fragment {
         cancelRequested = false;
         updateSendButton(true);
         resetStream();
+        showWorkingStatus("正在分析问题");
         final int recentTurns = Math.min(6, Math.max(0, (messages.size() - 2) / 2));
 
         activeWorker = new Thread(() -> {
@@ -283,10 +341,12 @@ public class AgentFragment extends Fragment {
                 String toolsJson = registry.buildToolsJson();
                 String context = ConversationMemory.findRelevant(ctx, prompt, 3, recentTurns);
 
-                String bodyJson = bridge.buildLlmRequest(prompt, context, model, toolsJson);
+                String systemPrompt = AppConfig.getSystemPrompt(ctx);
+                String bodyJson = bridge.buildLlmRequest(prompt, context, model, toolsJson, systemPrompt);
                 String finalText = null;
                 JSONArray agentTrace = new JSONArray();
                 Map<String, String> observationCache = new HashMap<>();
+                Map<String, String> campusSourceLinks = new LinkedHashMap<>();
                 for (int round = 0; round <= MAX_TOOL_ROUNDS; round++) {
                     if (cancelRequested) throw new InterruptedException("cancelled");
                     StringBuilder full = new StringBuilder();
@@ -351,7 +411,6 @@ public class AgentFragment extends Fragment {
 
                     if (!calls.isEmpty()) {
                         resetStream();
-                        act.runOnUiThread(() -> cb.deal("ToolCalling…"));
                         JSONArray callsArr = new JSONArray();
                         JSONArray resultsArr = new JSONArray();
                         for (ToolCall c : calls.values()) {
@@ -365,18 +424,24 @@ public class AgentFragment extends Fragment {
                             String fingerprint = c.name + "\n" + args;
                             String result = observationCache.get(fingerprint);
                             if (result == null) {
+                                showWorkingStatus(toolProgressText(c.name, args));
                                 result = registry.execute(c.name, args);
                                 observationCache.put(fingerprint, result);
+                            } else {
+                                showWorkingStatus("正在复用已获取的资料");
                             }
+                            collectCampusSourceLinks(c.name, result, campusSourceLinks);
                             android.util.Log.i("SEU_CHAT", "tool=" + c.name + " args=" + args
                                     + " resultLen=" + (result == null ? 0 : result.length()));
                             callsArr.put(buildToolCallObject(c.id, c.name, args));
                             resultsArr.put(buildToolResultObject(c.id, result));
                         }
-                        String nextTools = round + 1 >= MAX_TOOL_ROUNDS ? "" : toolsJson;
+                        showWorkingStatus("资料已获取，正在整理回答");
+                        String nextTools = round + 1 >= MAX_TOOL_ROUNDS
+                                ? "" : registry.buildToolsJson();
                         bodyJson = bridge.buildLlmToolRequest(context, model, nextTools,
                                 agentTrace.toString(), callsArr.toString(), resultsArr.toString(),
-                                reasoning.toString());
+                                reasoning.toString(), systemPrompt);
                         agentTrace.put(buildTraceItem(callsArr, resultsArr, reasoning.toString()));
                         continue;
                     }
@@ -385,6 +450,7 @@ public class AgentFragment extends Fragment {
                 }
 
                 if (finalText == null || finalText.isEmpty()) finalText = "[无回复]";
+                finalText = appendCampusSourceLinks(finalText, campusSourceLinks);
                 final String done = finalText;
                 act.runOnUiThread(() -> {
                     resetStream();
@@ -402,6 +468,7 @@ public class AgentFragment extends Fragment {
                     cb.deal(err);
                 });
             } finally {
+                stopWorkingStatus();
                 waiting = false;
                 activeCall = null;
                 activeWorker = null;
@@ -413,12 +480,13 @@ public class AgentFragment extends Fragment {
 
     private void cancelCurrentRequest() {
         cancelRequested = true;
+        stopWorkingStatus();
         Call call = activeCall;
         if (call != null) call.cancel();
         Thread worker = activeWorker;
         if (worker != null) worker.interrupt();
         resetStream();
-        adapter.updateLastMessage("已取消");
+        chatAdapter.updateLastMessage("已取消");
         updateSendButton(false);
     }
 
@@ -439,6 +507,46 @@ public class AgentFragment extends Fragment {
         } catch (Exception e) {
             return new JSONObject();
         }
+    }
+
+    private void collectCampusSourceLinks(String toolName, String result,
+                                          Map<String, String> links) {
+        if (!"search_notices".equals(toolName) || result == null || result.isEmpty()) return;
+        try {
+            JSONArray rows = new JSONObject(result).optJSONArray("结果");
+            if (rows == null) return;
+            for (int i = 0; i < rows.length() && links.size() < 3; i++) {
+                JSONObject row = rows.optJSONObject(i);
+                if (row == null) continue;
+                String url = row.optString("原文链接", "").trim();
+                String title = row.optString("标题", "查看原通知").trim();
+                if (isHttpUrl(url) && !links.containsKey(url)) {
+                    links.put(url, title.isEmpty() ? "查看原通知" : title);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private String appendCampusSourceLinks(String answer, Map<String, String> links) {
+        if (links.isEmpty()) return answer;
+        StringBuilder sources = new StringBuilder();
+        for (Map.Entry<String, String> entry : links.entrySet()) {
+            if (answer.contains(entry.getKey())) continue;
+            if (sources.length() == 0) sources.append("\n\n**原文链接**\n");
+            sources.append("- [")
+                    .append(escapeMarkdownLabel(entry.getValue()))
+                    .append("](").append(entry.getKey()).append(")\n");
+        }
+        return answer + sources;
+    }
+
+    private boolean isHttpUrl(String url) {
+        return url.startsWith("https://") || url.startsWith("http://");
+    }
+
+    private String escapeMarkdownLabel(String value) {
+        return value.replace("[", "\\[").replace("]", "\\]");
     }
 
     private JSONObject buildToolResultObject(String id, String content) {
@@ -473,20 +581,10 @@ public class AgentFragment extends Fragment {
         }
     }
 
-    // 一个回复中可能有多个 tool call，所以按 index 分开拼参数
     private static class ToolCall {
         String id;
         String name;
         final StringBuilder args = new StringBuilder();
-    }
-
-    private void measureNavBarHeight() {
-        View nav = getActivity() == null ? null : getActivity().findViewById(R.id.navigation);
-        if (nav == null) return;
-        final ViewGroup capsule = (ViewGroup) nav.getParent();
-        capsule.post(() -> {
-            if (capsule.getHeight() > 0) navBarHeight = capsule.getHeight();
-        });
     }
 
     private void animateBottomPadding(View v, int target) {
@@ -509,6 +607,7 @@ public class AgentFragment extends Fragment {
         if (waiting) cancelCurrentRequest();
         super.onDestroyView();
         streamHandler.removeCallbacksAndMessages(null);
+        statusHandler.removeCallbacksAndMessages(null);
         if (padAnimator != null) {
             padAnimator.cancel();
             padAnimator = null;

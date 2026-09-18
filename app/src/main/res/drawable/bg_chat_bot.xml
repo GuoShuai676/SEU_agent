@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 助手消息气泡：白色底 + 细描边，在浅色渐变背景上仍清晰 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <solid android:color="@color/chat_bot_bg" />

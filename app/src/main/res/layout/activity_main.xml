@@ -13,35 +13,24 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-
-    <!-- 底部导航容器 -->
-    <LinearLayout
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/navigation"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingStart="16dp"
-        android:paddingTop="8dp"
-        android:paddingEnd="16dp"
         android:layout_gravity="bottom"
-        android:paddingBottom="8dp">
-
-        <!-- 白色圆角胶囊 -->
-        <com.google.android.material.bottomnavigation.BottomNavigationView
-            android:id="@+id/navigation"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_nav_bar"
-            android:clipToOutline="true"
-            android:elevation="0dp"
-            android:outlineProvider="none"
-            app:itemActiveIndicatorStyle="@style/NavActiveIndicator"
-            app:itemBackground="@android:color/transparent"
-            app:itemIconTint="@color/botom_selector_color"
-            app:itemRippleColor="@color/brand_primary_light"
-            app:itemTextColor="@color/botom_selector_color"
-            app:labelVisibilityMode="labeled"
-            app:menu="@menu/botom_navigation_menu" />
-    </LinearLayout>
-
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/bg_nav_bar"
+        android:clipToOutline="true"
+        android:elevation="0dp"
+        android:outlineProvider="background"
+        app:itemActiveIndicatorStyle="@style/NavActiveIndicator"
+        app:itemBackground="@android:color/transparent"
+        app:itemIconTint="@color/botom_selector_color"
+        app:itemRippleColor="@color/brand_primary_light"
+        app:itemTextColor="@color/botom_selector_color"
+        app:labelVisibilityMode="labeled"
+        app:menu="@menu/botom_navigation_menu" />
 
 </FrameLayout>

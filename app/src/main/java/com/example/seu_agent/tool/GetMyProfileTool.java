@@ -23,7 +23,9 @@ public class GetMyProfileTool implements AgentTool
 
     @Override
     public String getDescription() {
-        return "用于获取我的个人信息，包括姓名，专业，年级，爱好，学号";
+        return "用于获取我的个人信息，包括姓名，专业，年级，爱好，学号，"
+                +"在回复时可以据此生成更符合用户的回复";
+
     }
 
     @Override

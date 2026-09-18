@@ -15,7 +15,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-/** 查询用户手动录入的课程，不经过 RAG。 */
 public class GetCoursesTool implements AgentTool {
 
     private final Context ctx;

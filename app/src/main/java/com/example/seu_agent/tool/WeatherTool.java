@@ -6,6 +6,9 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.HttpUrl;
@@ -30,7 +33,8 @@ public class WeatherTool implements AgentTool {
     public String getDescription() {
         return "查询指定城市的实时天气、空气质量和未来三天天气。"
                 + "用户询问天气、温度、是否下雨、是否需要带伞时调用。"
-                + "城市不明确时应先询问用户，南京或东南大学默认可使用南京。";
+                + "默认地点使用南京。"
+                +"在用户提及出门或是有活动安排时调用";
     }
 
     @Override
@@ -83,6 +87,7 @@ public class WeatherTool implements AgentTool {
         JSONObject out = new JSONObject();
         out.put("地区", joinLocation(raw));
         copy(raw, out, "weather", "当前天气");
+        copy(raw, out, "weather_icon", "天气代码");
         copy(raw, out, "temperature", "温度℃");
         copy(raw, out, "feels_like", "体感温度℃");
         copy(raw, out, "humidity", "湿度%");
@@ -90,8 +95,7 @@ public class WeatherTool implements AgentTool {
         copy(raw, out, "wind_power", "风力");
         copy(raw, out, "aqi", "AQI");
         copy(raw, out, "aqi_category", "空气质量");
-        copy(raw, out, "report_time", "更新时间");
-
+        out.put("更新时间", new SimpleDateFormat("HH:mm", Locale.CHINA).format(new Date()));
         JSONArray sourceForecast = raw.optJSONArray("forecast");
         if (sourceForecast != null) {
             JSONArray forecast = new JSONArray();

@@ -14,22 +14,18 @@ import com.example.seu_agent.R;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 资讯列表适配器（经典写法：LayoutInflater + findViewById）。
- */
 public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.VH> {
 
-    /** 点击回调  */
+
     public interface OnItemClickListener {
         void onItemClick(NewsItem item);
     }
 
-    /** 单条资讯数据 */
     public static class NewsItem {
-        public final String title;   // 标题
-        public final String time;    // 发布时间
-        public final String tag;     // 分类：教务/讲座/实践
-        public final String url;     // 详情链接
+        public final String title;
+        public final String time;
+        public final String tag;
+        public final String url;
 
         public NewsItem(String title, String time, String tag, String url) {
             this.title = title;
@@ -42,12 +38,11 @@ public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.VH> {
     private final List<NewsItem> items = new ArrayList<>();
     private OnItemClickListener listener;
 
-    /** 设置点击监听 */
+
     public void setOnItemClickListener(OnItemClickListener l) {
         this.listener = l;
     }
 
-    /** 刷新整个列表 */
     public void submit(List<NewsItem> list) {
         items.clear();
         if (list != null) items.addAll(list);
@@ -57,7 +52,7 @@ public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.VH> {
     @NonNull
     @Override
     public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        // 加载 item_news.xml 布局
+
         View view = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_news, parent, false);
         return new VH(view);
@@ -72,7 +67,6 @@ public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.VH> {
         holder.ivCover.setImageResource(coverForTag(item.tag));
         holder.tvCoverLabel.setText(labelForTag(item.tag));
 
-        // 整张卡片可点击，回调给外面处理
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) listener.onItemClick(item);
         });
@@ -99,7 +93,6 @@ public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.VH> {
         return "校园";
     }
 
-    /** ViewHolder */
     static class VH extends RecyclerView.ViewHolder {
         final TextView tvTitle;
         final TextView tvTime;

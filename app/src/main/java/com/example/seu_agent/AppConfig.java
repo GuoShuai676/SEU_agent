@@ -15,6 +15,7 @@ public class AppConfig {
     private static final String KEY_LLM_MODEL = "llm_model";
     private static final String KEY_LLM_URL = "llm_url";
     private static final String KEY_API_KEY = "api_key";
+    private static final String KEY_SYSTEM_PROMPT = "system_prompt";
     private static final String KEY_MODELS = "models";
     private static final String KEY_NAME = "profile_name";
     private static final String KEY_STUDENT_ID = "profile_student_id";
@@ -23,9 +24,32 @@ public class AppConfig {
     private static final String KEY_HOBBIES = "profile_hobbies";
     private static final String KEY_FIRST_MONDAY = "semester_first_monday";
 
-    public static final String DEFAULT_SERVER_URL = "http://103.236.89.13:8003";
+    public static final String DEFAULT_SERVER_URL = "http://103.236.92.58:8003";
     public static final String DEFAULT_LLM_URL = "https://api.deepseek.com/v1/chat/completions";
     public static final String DEFAULT_MODEL = "deepseek-v4-flash";
+    public static final String DEFAULT_SYSTEM_PROMPT =
+            "你是东南大学校园智能助手，回答校园相关问题。如果用户的问题涉及具体的"
+            + "教务通知、讲座或实践信息，请调用对应工具核实，不要凭空编造细节。\n\n"
+            + "你可以使用工具完成任务。收到问题后先在内部制定一个简短计划，不要向用户展示思维链。"
+            + "需要事实或外部信息时调用工具；互不依赖的工具可以在同一轮一起调用。"
+            + "每次得到工具结果后，把它当作观察结果重新检查并动态调整计划。"
+            + "信息不足时可以继续调用其他工具；信息足够后停止调用并给出直接、完整的最终回答。"
+            + "不得编造工具没有返回的事实，也不要重复调用参数完全相同的工具。"
+            + "使用校园资讯检索结果回答时，必须在答案末尾用Markdown格式"
+            + "[通知标题](原文链接)列出所依据的原文，绝不能编造或修改链接。";
+
+    public static String getSystemPrompt(Context c) {
+        String value = prefs(c).getString(KEY_SYSTEM_PROMPT, DEFAULT_SYSTEM_PROMPT);
+        return value == null || value.trim().isEmpty() ? DEFAULT_SYSTEM_PROMPT : value;
+    }
+
+    public static boolean saveSystemPrompt(Context c, String prompt) {
+        return prefs(c).edit().putString(KEY_SYSTEM_PROMPT, prompt.trim()).commit();
+    }
+
+    public static boolean resetSystemPrompt(Context c) {
+        return prefs(c).edit().remove(KEY_SYSTEM_PROMPT).commit();
+    }
 
 
     private static final List<String> DEFAULT_MODELS =

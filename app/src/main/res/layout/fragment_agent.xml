@@ -25,7 +25,7 @@
             android:clipToOutline="true">
 
             <ImageView
-                android:layout_width="match_parent"
+                android:layout_width="48dp"
                 android:layout_height="match_parent"
                 android:contentDescription="校园智能助手叮东"
                 android:scaleType="centerCrop"
@@ -42,7 +42,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="叮咚"
+                android:text="叮东"
                 android:textColor="@color/text_primary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
@@ -56,7 +56,6 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
-        <!-- 模型选择器 -->
         <FrameLayout
             android:layout_width="wrap_content"
             android:layout_height="40dp"
@@ -85,63 +84,87 @@
         </FrameLayout>
     </LinearLayout>
 
-    <!-- 对话区 -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/chat_recycle"
+    <FrameLayout
+        android:id="@+id/chat_area"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:padding="16dp"
-        android:scrollbars="none">
+        android:layout_weight="1">
 
-    </androidx.recyclerview.widget.RecyclerView>
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/chat_recycle"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:padding="16dp"
+            android:scrollbars="none" />
 
-    <!-- 输入栏（底部留白由代码动态控制：平时避开悬浮导航栏，键盘弹出时贴键盘上沿） -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingEnd="10dp"
-        android:paddingStart="10dp"
-        android:padding="0dp">
-
-        <EditText
-            android:id="@+id/et_chat_input"
-            android:layout_width="0dp"
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/chat_input_blur"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="@drawable/bg_chat_input"
-            android:hint="输入你的问题…"
-            android:imeOptions="actionSend"
-            android:inputType="text"
-            android:maxLines="3"
-            android:minHeight="44dp"
-            android:paddingStart="16dp"
-            android:paddingTop="10dp"
-            android:paddingEnd="16dp"
-            android:paddingBottom="10dp"
-            android:textColor="@color/text_primary"
-            android:textColorHint="@color/text_secondary"
-            android:textSize="15sp" />
-
-        <FrameLayout
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_gravity="bottom"
             android:layout_marginStart="10dp"
-            android:background="@drawable/bg_send_button">
+            android:layout_marginEnd="10dp"
+            android:layout_marginBottom="6dp"
+            android:background="@drawable/bg_chat_input_blur"
+            android:clipToOutline="true"
+            android:outlineProvider="background"
+            app:blurOverlayColor="#38FFFFFF">
 
-            <TextView
-                android:id="@+id/tvsend"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:text="↑"
-                android:textColor="@color/brand_on_primary"
-                android:textSize="22sp"
-                android:clickable="true"
-                android:textStyle="bold" />
-        </FrameLayout>
-    </LinearLayout>
+                android:gravity="bottom"
+                android:orientation="horizontal"
+                android:paddingStart="5dp"
+                android:paddingTop="3dp"
+                android:paddingEnd="5dp"
+                android:paddingBottom="3dp">
+
+                <EditText
+                    android:id="@+id/et_chat_input"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@android:color/transparent"
+                    android:gravity="top|start"
+                    android:hint="输入你的问题…"
+                    android:imeOptions="actionNone|flagNoExtractUi"
+                    android:inputType="textCapSentences|textMultiLine"
+                    android:maxLines="6"
+                    android:minHeight="44dp"
+                    android:minLines="1"
+                    android:overScrollMode="ifContentScrolls"
+                    android:paddingStart="16dp"
+                    android:paddingTop="10dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="10dp"
+                    android:scrollbars="vertical"
+                    android:singleLine="false"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_secondary"
+                    android:textSize="15sp" />
+
+                <FrameLayout
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_gravity="bottom"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/bg_send_button">
+
+                    <TextView
+                        android:id="@+id/tvsend"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:clickable="true"
+                        android:text="↑"
+                        android:textColor="@color/brand_on_primary"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+                </FrameLayout>
+            </LinearLayout>
+        </eightbitlab.com.blurview.BlurView>
+    </FrameLayout>
 </LinearLayout>
 </FrameLayout>

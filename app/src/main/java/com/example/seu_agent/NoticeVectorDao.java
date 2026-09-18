@@ -7,9 +7,6 @@ import androidx.room.Query;
 
 import java.util.List;
 
-/**
- * 语义向量 DAO：url 为主键，重复写入直接覆盖。
- */
 @Dao
 public interface NoticeVectorDao {
 

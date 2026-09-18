@@ -7,9 +7,6 @@ import androidx.room.Query;
 
 import java.util.List;
 
-/**
- * 句子向量 DAO：(url, text) 唯一，重复写入 REPLACE 覆盖。
- */
 @Dao
 public interface NoticeChunkDao {
 

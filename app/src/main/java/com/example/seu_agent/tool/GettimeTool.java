@@ -9,7 +9,6 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
 
-/** 读取手机当前的日期、时间和时区。 */
 public class GettimeTool implements AgentTool {
 
     @Override
@@ -20,7 +19,8 @@ public class GettimeTool implements AgentTool {
     @Override
     public String getDescription() {
         return "获取手机当前日期、时间、星期和时区。"
-                + "用户询问现在几点、今天几号、今天星期几时调用。";
+                + "用户询问现在几点、今天几号、今天星期几时调用。"
+                +"在用户询问课表或资讯时调用，根据当前时间回复";
     }
 
     @Override

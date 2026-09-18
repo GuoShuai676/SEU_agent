@@ -12,7 +12,6 @@
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
-//json字符串转义
 static std::string Json_Convert(const std::string s)
 {
     std::string out;
@@ -39,7 +38,6 @@ static std::string Json_Convert(const std::string s)
             default:
                 unsigned char uc = (unsigned char)c;
                 if (uc < 0x20 || uc == 0x7f) {
-                    // 其余控制字符 → \u00XX，避免请求体含非法字符被 400
                     out += "\\u00";
                     out += hex[uc >> 4];
                     out += hex[uc & 0x0f];
@@ -51,8 +49,6 @@ static std::string Json_Convert(const std::string s)
         return out;
 }
 
-//URL编码 把不安全的字符变成安全的，API或浏览器可用的UTF8编码，UTF8最多支持四个字节32bit
-//汉字 3字节 Emoji 4字节
 static std::string URL_Generate(std::string s)
 {   static const char* hex="0123456789ABCDEF";
     std::string out;
@@ -70,7 +66,6 @@ static std::string URL_Generate(std::string s)
         return out;
 }
 
-//jstring->std::string
 static std::string jstr(JNIEnv* env, jstring j) {
     if (!j) return "";
     const char* c = env->GetStringUTFChars(j, nullptr);
@@ -79,8 +74,6 @@ static std::string jstr(JNIEnv* env, jstring j) {
     return s;
 }
 
-//清理UTF-8：丢弃结尾不完整的字节（SSE分块可能把多字节字符切断，下一块会补上），
-//把中间非法字节替换为'?'。防止 NewStringUTF 收到非法序列导致原生崩溃。
 static std::string SanitizeUTF8(const std::string& s)
 {
     std::string out;
@@ -104,22 +97,8 @@ static std::string SanitizeUTF8(const std::string& s)
     }
     return out;
 }
-
-
-
-extern "C" JNIEXPORT jstring JNICALL
-Java_com_example_seu_1agent_MainActivity_stringFromJNI(
-        JNIEnv* env,
-        jobject /* this */) {
-    std::string hello = "Hello from C++";
-    return env->NewStringUTF(hello.c_str());
-}
-
-
-// 聊天历史（role, content）
 static std::vector<std::pair<std::string, std::string>> g_chatHistory;
 
-//检测API
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_example_seu_1agent_NativeBridge_isApiOk(JNIEnv* env, jobject, jstring jResp) {
     JsonValue root = JsonValue::parse(jstr(env, jResp));
@@ -131,37 +110,28 @@ Java_com_example_seu_1agent_NativeBridge_isApiOk(JNIEnv* env, jobject, jstring j
 }
 
 
-// system prompt
-static std::string BuildSystemPrompt(const std::string& context) {
-    const std::string react =
-            "\n\n你可以使用工具完成任务。收到问题后先在内部制定一个简短计划，不要向用户展示思维链。"
-            "需要事实或外部信息时调用工具；互不依赖的工具可以在同一轮一起调用。"
-            "每次得到工具结果后，把它当作观察结果重新检查并动态调整计划。"
-            "信息不足时可以继续调用其他工具；信息足够后停止调用并给出直接、完整的最终回答。"
-            "不得编造工具没有返回的事实，也不要重复调用参数完全相同的工具。";
+static std::string BuildSystemPrompt(const std::string& prompt, const std::string& context) {
     if (!context.empty()) {
-        return "你是东南大学校园智能助手。下面是通过语义检索找到的历史对话，"
+        return prompt + "\n\n下面是通过语义检索找到的历史对话，"
                "仅用于理解用户的上下文和以前讨论过的内容，不代表学校官方事实；"
-               "涉及实时信息或校园通知时仍应调用对应工具核实。" + react + "\n\n"
+               "涉及实时信息或校园通知时仍应调用对应工具核实。\n\n"
                "=== 相关历史记忆 ===\n" + context + "\n=== 历史记忆结束 ===";
     }
-    return "你是东南大学校园智能助手，回答校园相关问题。如果用户的问题涉及具体的"
-           "教务通知、讲座或实践信息，请告知用户可以在资讯页查看，不要凭空编造细节。"
-           + react;
+    return prompt;
 }
 
 
-// 首轮聊天请求
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_seu_1agent_NativeBridge_buildLlmRequest(
-        JNIEnv* env, jobject, jstring jPrompt, jstring jContext, jstring jModel, jstring jTools) {
+        JNIEnv* env, jobject, jstring jPrompt, jstring jContext, jstring jModel, jstring jTools,
+        jstring jSystemPrompt) {
     std::string prompt = jstr(env, jPrompt);
     std::string context = jstr(env, jContext);
     std::string model = jstr(env, jModel);
     std::string toolsJson = jstr(env, jTools);
     if (model.empty()) model = "deepseek-v4-flash";
 
-    std::string sys = BuildSystemPrompt(context);
+    std::string sys = BuildSystemPrompt(jstr(env, jSystemPrompt), context);
 
     std::ostringstream ss;
     ss << "{\"model\":\"" << model << "\",\"messages\":[";
@@ -178,11 +148,11 @@ Java_com_example_seu_1agent_NativeBridge_buildLlmRequest(
 }
 
 
-// 工具调用后的续轮请求
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_seu_1agent_NativeBridge_buildLlmToolRequest(
         JNIEnv* env, jobject, jstring jContext, jstring jModel, jstring jTools,
-        jstring jTrace, jstring jCalls, jstring jResults, jstring jReasoning) {
+        jstring jTrace, jstring jCalls, jstring jResults, jstring jReasoning,
+        jstring jSystemPrompt) {
     std::string context = jstr(env, jContext);
     std::string model = jstr(env, jModel);
     std::string toolsJson = jstr(env, jTools);
@@ -194,7 +164,7 @@ Java_com_example_seu_1agent_NativeBridge_buildLlmToolRequest(
 
     static std::atomic<int> g_callSeq{0};
 
-    std::string sys = BuildSystemPrompt(context);
+    std::string sys = BuildSystemPrompt(jstr(env, jSystemPrompt), context);
     std::ostringstream ss;
     ss << "{\"model\":\"" << model << "\",\"messages\":[";
     ss << "{\"role\":\"system\",\"content\":\"" << Json_Convert(sys) << "\"}";
@@ -232,7 +202,6 @@ Java_com_example_seu_1agent_NativeBridge_buildLlmToolRequest(
         }
     };
 
-    // 每次续轮都重新附上此前全部 Action / Observation，模型才能动态调整计划。
     for (size_t i = 0; i < trace.size(); i++) {
         const JsonValue* item = trace.at(i);
         const JsonValue* oldCalls = item ? item->find("calls") : nullptr;
@@ -253,7 +222,6 @@ Java_com_example_seu_1agent_NativeBridge_buildLlmToolRequest(
 }
 
 
-// 解析 DeepSeek 非流式响应，提取回复文本
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_seu_1agent_NativeBridge_parseLlmReply(JNIEnv* env, jobject, jstring jResp) {
     JsonValue root = JsonValue::parse(jstr(env, jResp));
@@ -265,7 +233,6 @@ Java_com_example_seu_1agent_NativeBridge_parseLlmReply(JNIEnv* env, jobject, jst
 }
 
 
-//  解析 SSE 流式的一行，返回增量文本
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_seu_1agent_NativeBridge_parseLlmStreamLine(JNIEnv* env, jobject, jstring jLine) {
     std::string line = jstr(env, jLine);
@@ -284,7 +251,6 @@ Java_com_example_seu_1agent_NativeBridge_parseLlmStreamLine(JNIEnv* env, jobject
 }
 
 
-// 取 SSE 中的一段工具调用
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_seu_1agent_NativeBridge_parseLlmStreamToolCall(JNIEnv* env, jobject, jstring jLine) {
     std::string line = jstr(env, jLine);
@@ -303,7 +269,6 @@ Java_com_example_seu_1agent_NativeBridge_parseLlmStreamToolCall(JNIEnv* env, job
     const JsonValue* tc = tcs->at(0);
     if (!tc) return env->NewStringUTF("");
 
-    // 组装合法 JSON
     std::string out = "{";
     bool first = true;
     auto addField = [&](const std::string& key, const std::string& val) {
@@ -328,7 +293,6 @@ Java_com_example_seu_1agent_NativeBridge_parseLlmStreamToolCall(JNIEnv* env, job
 }
 
 
-// 取 reasoning_content
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_seu_1agent_NativeBridge_parseLlmStreamReasoning(JNIEnv* env, jobject, jstring jLine) {
     std::string line = jstr(env, jLine);
@@ -347,13 +311,11 @@ Java_com_example_seu_1agent_NativeBridge_parseLlmStreamReasoning(JNIEnv* env, jo
 }
 
 
-// 聊天历史
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_seu_1agent_NativeBridge_addChatMessage(
         JNIEnv* env, jobject, jstring jText, jboolean isUser) {
     std::string text = jstr(env, jText);
     g_chatHistory.push_back({isUser ? "user" : "assistant", text});
-    // 请求时保留最近六轮完整对话和当前问题；回答完成后裁剪为 12 条。
     size_t limit = isUser ? 13 : 12;
     while (g_chatHistory.size() > limit) g_chatHistory.erase(g_chatHistory.begin());
 }

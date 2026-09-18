@@ -3,7 +3,7 @@
     <item
         android:id="@+id/menu_news"
         android:icon="@drawable/news"
-        android:title="资讯"/>
+        android:title="今日"/>
     <item
         android:id="@+id/menu_agent"
         android:icon="@drawable/agent"

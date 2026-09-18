@@ -1,27 +1,9 @@
-// ===================================================================
-//  json_parser.cpp —— 手写递归下降 JSON 解析器
-//
-//  功能：
-//    1. 解析标准 JSON 文本（RFC 8259）
-//    2. 处理字符串转义：\" \\ \/ \b \f \n \r \t \uXXXX
-//    3. 支持 UTF-8 编码：将 \uXXXX Unicode 转义转为 UTF-8 字节
-//    4. 支持代理对（surrogate pair）：\uD800-\uDBFF + \uDC00-\uDFFF
-//
-//  设计说明：
-//    - Parser 类内部维护游标 pos，逐字符消费输入
-//    - parseValue() 根据首字符分派到对应子解析器
-//    - 解析失败时返回 type=Null 的 JsonValue
-// ===================================================================
 
 #include "json_parser.h"
 #include <sstream>
 #include <stdexcept>
 
-// -------------------------------------------------------------------
-//  UTF-8 编码工具
-// -------------------------------------------------------------------
 
-// 将 Unicode 码点编码为 UTF-8 字节序列，追加到 out
 static void encodeUtf8(uint32_t cp, std::string& out) {
     if (cp <= 0x7F) {
         out += (char) cp;
@@ -40,7 +22,6 @@ static void encodeUtf8(uint32_t cp, std::string& out) {
     }
 }
 
-// 将 2 字符的十六进制转为 0-15 的整数
 static int hexDigit(char c) {
     if (c >= '0' && c <= '9') return c - '0';
     if (c >= 'a' && c <= 'f') return c - 'a' + 10;
@@ -48,14 +29,10 @@ static int hexDigit(char c) {
     return -1;
 }
 
-// -------------------------------------------------------------------
-//  Parser —— 递归下降解析器
-// -------------------------------------------------------------------
 class Parser {
 public:
     explicit Parser(const std::string& s) : src_(s), pos_(0) {}
 
-    // 入口：解析顶层 JSON 值
     JsonValue parse() {
         skipWs();
         JsonValue v = parseValue();
@@ -67,7 +44,6 @@ private:
     const std::string& src_;
     size_t pos_;
 
-    // --- 辅助方法 ---
     char peek() { return pos_ < src_.size() ? src_[pos_] : '\0'; }
     char next() { return pos_ < src_.size() ? src_[pos_++] : '\0'; }
     bool eof()  { return pos_ >= src_.size(); }
@@ -84,7 +60,6 @@ private:
         return false;
     }
 
-    // --- 值分派 ---
     JsonValue parseValue() {
         skipWs();
         if (eof()) return {};
@@ -102,7 +77,6 @@ private:
         }
     }
 
-    // 字符串解析
     JsonValue parseString() {
         JsonValue v;
         v.type = JsonType::String;
@@ -129,7 +103,6 @@ private:
                     case 'r': out += '\r'; break;
                     case 't': out += '\t'; break;
                     case 'u': {
-                        // \uXXXX → 读取 4 位十六进制
                         uint32_t cp = 0;
                         for (int i = 0; i < 4; i++) {
                             if (eof()) return {};
@@ -137,9 +110,7 @@ private:
                             if (h < 0) return {};
                             cp = (cp << 4) | (uint32_t) h;
                         }
-                        // 代理对处理
                         if (cp >= 0xD800 && cp <= 0xDBFF && !eof() && peek() == '\\') {
-                            // 尝试读取第二个 \uXXXX
                             size_t save = pos_;
                             if (src_[pos_++] == '\\' && !eof() && next() == 'u') {
                                 uint32_t low = 0;
@@ -173,7 +144,6 @@ private:
         return {};  // 未闭合的字符串
     }
 
-    // --- 数字解析 ---
     JsonValue parseNumber() {
         std::string s;
         if (peek() == '-') s += next();
@@ -192,7 +162,6 @@ private:
         return v;
     }
 
-    //  布尔值解析
     JsonValue parseBool() {
         JsonValue v;
         v.type = JsonType::Bool;
@@ -206,7 +175,6 @@ private:
         return v;
     }
 
-    //  null 解析
     JsonValue parseNull() {
         if (src_.compare(pos_, 4, "null") == 0) {
             pos_ += 4;
@@ -214,7 +182,6 @@ private:
         return {};
     }
 
-    //  数组解析
     JsonValue parseArray() {
         JsonValue v;
         v.type = JsonType::Array;
@@ -232,7 +199,6 @@ private:
         return v;
     }
 
-    //  对象解析
     JsonValue parseObject() {
         JsonValue v;
         v.type = JsonType::Object;
@@ -242,7 +208,6 @@ private:
 
         while (!eof()) {
             skipWs();
-            // 解析 key（必须是字符串）
             if (peek() != '"') break;
             JsonValue key = parseString();
             if (key.type != JsonType::String) break;

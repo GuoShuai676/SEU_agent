@@ -1,16 +1,8 @@
-// ===================================================================
-//  bge.cpp —— 本地语义嵌入（C++ 实现，JNI 暴露给 Java）
+//bge模型相关执行函数
+//  1.分词
+//  2.
 //
-//  分工（与项目"逻辑放 C++"一致）：
-//    1. BERT WordPiece 分词器（中文逐字 + 英文子词）
-//    2. 中文按句切分（。！？；… 换行）
-//    3. ONNX Runtime C API 跑 bge-small-zh-v1.5 INT8，取 CLS 向量归一化
-//
-//  JNI 接口：
-//    initBge(modelPath, vocabPath) -> boolean  加载模型（线程安全，幂等）
-//    embedText(text) -> float[512]             文本 → 归一化向量
-//    splitSentences(text) -> String[]          中文按句切分
-// ===================================================================
+
 
 #include <jni.h>
 #include <android/log.h>
@@ -29,9 +21,9 @@
 #define LOG_TAG "seu_bge"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
-// ---------------------------------------------------------------
+
 //  UTF-8 工具
-// ---------------------------------------------------------------
+
 
 // 解码 s[i] 处的一个 UTF-8 字符
 static bool DecodeUtf8(const std::string& s, size_t i, uint32_t& cp, int& len) {
@@ -48,7 +40,7 @@ static bool DecodeUtf8(const std::string& s, size_t i, uint32_t& cp, int& len) {
     return true;
 }
 
-// 是否 CJK 汉字（含扩展 A 与兼容区）
+// 是否汉字
 static bool IsCjk(uint32_t cp) {
     return (cp >= 0x3400 && cp <= 0x4DBF)
         || (cp >= 0x4E00 && cp <= 0x9FFF)
@@ -62,17 +54,15 @@ static std::string Trim(const std::string& s) {
     return s.substr(b, e - b);
 }
 
-// ---------------------------------------------------------------
-//  BERT WordPiece 分词器（与模型配置一致：不转小写、中文逐字、512 上限）
-// ---------------------------------------------------------------
+// 分词器
 
 class BgeTokenizer {
 public:
-    static const int CLS_ID = 101;
-    static const int SEP_ID = 102;
-    static const int UNK_ID = 100;
+    static const int CLS_ID = 101; //词表开始符号
+    static const int SEP_ID = 102; //词表结束符号
+    static const int UNK_ID = 100; //词表未知token符号
     static const int MAX_LEN = 512;
-
+    //把词表加载进内存，用哈希表存储 <k:token,v:序号>
     void load(const std::vector<std::string>& lines) {
         vocab_.clear();
         maxWordLen_ = 0;
@@ -85,7 +75,7 @@ public:
         }
     }
 
-    // 编码为模型输入：[0]=input_ids [1]=attention_mask [2]=token_type_ids，均 512
+    // 编码为模型输入，格式为【512，3】.[，0]=input_ids [，1]=attention_mask [，2]=token_type_ids
     std::array<std::vector<int64_t>, 3> encode(const std::string& text) {
         std::vector<std::string> pieces = WordPiece(BasicTokenize(text));
         std::vector<int64_t> ids(MAX_LEN, 0), mask(MAX_LEN, 0), types(MAX_LEN, 0);
@@ -102,7 +92,8 @@ public:
     }
 
 private:
-    std::unordered_map<std::string, int> vocab_;
+
+    std::unordered_map<std::string, int> vocab_;  // 词表的哈希表
     int maxWordLen_ = 0;
 
     // 将暂存的英文、数字等内容按空格拆开，加入最终 token 列表。
@@ -178,10 +169,7 @@ private:
     }
 };
 
-// ---------------------------------------------------------------
 //  中文按句切分：。！？；… 以及换行 作为句子边界
-// ---------------------------------------------------------------
-
 static std::vector<std::string> SplitSentences(const std::string& text) {
     std::vector<std::string> out;
     std::string cur;
@@ -223,9 +211,7 @@ BgeState& State() {
 
 } // namespace
 
-// ---------------------------------------------------------------
 //  JNI 接口
-// ---------------------------------------------------------------
 
 static std::string jstr(JNIEnv* env, jstring j) {
     if (!j) return "";
@@ -254,7 +240,7 @@ Java_com_example_seu_1agent_NativeBridge_initBge(JNIEnv* env, jobject, jstring j
             }
         }
         st.tokenizer.load(lines);
-        // 会话
+
         Ort::SessionOptions opts;
         opts.SetIntraOpNumThreads(2);
         st.session = std::make_unique<Ort::Session>(st.env, modelPath.c_str(), opts);
@@ -276,7 +262,7 @@ Java_com_example_seu_1agent_NativeBridge_embedText(JNIEnv* env, jobject, jstring
     std::string text = jstr(env, jText);
     try {
         auto enc = st.tokenizer.encode(text);
-        std::vector<int64_t> ids = enc[0];    // 非 const：CreateTensor<T> 需要 T* 指针
+        std::vector<int64_t> ids = enc[0];
         std::vector<int64_t> mask = enc[1];
         std::vector<int64_t> types = enc[2];
         int64_t shape[2] = {1, BgeTokenizer::MAX_LEN};

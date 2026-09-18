@@ -1,14 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 顶部背景：浅灰底 + 几道淡淡的橙/粉光晕，低调高级 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 浅灰底色 -->
     <item>
         <shape android:shape="rectangle">
             <solid android:color="#FFF4F4F6" />
         </shape>
     </item>
 
-    <!-- 左上：淡橙光晕 -->
     <item
         android:width="320dp"
         android:height="320dp"
@@ -22,7 +19,6 @@
         </shape>
     </item>
 
-    <!-- 右上：淡粉光晕 -->
     <item
         android:width="300dp"
         android:height="300dp"
@@ -36,7 +32,6 @@
         </shape>
     </item>
 
-    <!-- 底部：暖橙光晕 -->
     <item
         android:width="420dp"
         android:height="220dp"

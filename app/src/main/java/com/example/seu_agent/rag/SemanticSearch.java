@@ -12,22 +12,25 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-/** 本地句子语义检索。 */
 public class SemanticSearch {
     public static final float SCORE_THRESHOLD = 0.5f;
+    private static final AtomicBoolean INDEXING = new AtomicBoolean(false);
 
-    // k 是最多返回多少个片段
     public static List<NoticeChunk> topChunks(Context ctx, String question, int k) {
         try {
-            if (!ensureChunks(ctx)) return new ArrayList<>();
             List<NoticeChunk> all = AppDatabase.get(ctx).noticeChunkDao().getAll();
-            if (all.isEmpty()) return all;
+            if (all.isEmpty()) {
+                warmUpAsync(ctx);
+                return all;
+            }
+
+            if (INDEXING.get()) return new ArrayList<>();
 
             float[] q = BgeEmbedder.embed(ctx, question);
             if (q == null) return new ArrayList<>();
 
-            // 向量已经归一化，点积就是余弦相似度
             float[] scores = new float[all.size()];
             for (int i = 0; i < all.size(); i++) {
                 float[] v = NoticeVector.toFloats(all.get(i).vector);
@@ -51,13 +54,22 @@ public class SemanticSearch {
     }
 
     public static void warmUp(Context ctx) {
+        if (!INDEXING.compareAndSet(false, true)) return;
         try {
-            ensureChunks(ctx);
+            ensureChunksInternal(ctx);
         } catch (Exception ignored) {
+        } finally {
+            INDEXING.set(false);
         }
     }
-    // 给还没有向量的句子补索引
-    public static boolean ensureChunks(Context ctx) {
+
+    private static void warmUpAsync(Context ctx) {
+        if (INDEXING.get()) return;
+        Context appContext = ctx.getApplicationContext();
+        new Thread(() -> warmUp(appContext), "notice-vector-index").start();
+    }
+
+    private static boolean ensureChunksInternal(Context ctx) {
         try {
             List<Notice> notices = AppDatabase.get(ctx).noticeDao().getAll();
             if (notices.isEmpty()) {
@@ -78,7 +90,6 @@ public class SemanticSearch {
                 for (String s : sents) {
                     String key = n.url + "\u0000" + s;
                     if (existing.containsKey(key)) continue;
-                    // 标题一起参与嵌入，避免短句失去上下文
                     String embedText = (n.title == null ? "" : n.title) + "：" + s;
                     float[] vec = BgeEmbedder.embed(ctx, embedText);
                     if (vec == null) continue;

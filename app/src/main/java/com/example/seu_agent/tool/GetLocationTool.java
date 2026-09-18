@@ -11,7 +11,6 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
-/** 通过公网出口 IP 获取大致地区，不读取 GPS。 */
 public class GetLocationTool implements AgentTool {
 
     private static final String API_URL = "https://uapis.cn/api/v1/network/myip";

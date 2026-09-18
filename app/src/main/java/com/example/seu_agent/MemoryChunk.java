@@ -18,7 +18,6 @@ public class MemoryChunk {
     public String userMessage;
 
     public String assistantMessage;
-//
     public long createdAt;
 
     @ColumnInfo(typeAffinity = ColumnInfo.BLOB)
